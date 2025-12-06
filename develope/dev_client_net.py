@@ -234,3 +234,31 @@ class DevClient:
         
         resp = await self._req("Dev_update_game", "change_game_status", data)
         return resp
+    
+    async def get_game_data(self, game_id, game_name, game_folder):
+        
+        data = {
+            "game_id": game_id,
+            "game_name": game_name,
+        }
+        #print("✅ 讀取遊戲資料請求：", data)
+        resp = await self._req("Dev_update_game", "get_game_data", data)
+        #print("✅ 讀取遊戲資料回應：", resp)
+        
+        config = resp.get("data", {}).get("config", "")
+        server_code = resp.get("data", {}).get("server_code", "")
+        client_code = resp.get("data", {}).get("client_code", "")
+        
+        game_folder = Path(game_folder)
+        config_path = game_folder / "config.json"
+        server_path = game_folder / "game_server.py"
+        client_path = game_folder / "game_client.py"
+        
+        config_path.write_text(config, encoding="utf-8")
+        server_path.write_text(server_code, encoding="utf-8")
+        client_path.write_text(client_code, encoding="utf-8")
+        
+        return resp
+        
+        
+        

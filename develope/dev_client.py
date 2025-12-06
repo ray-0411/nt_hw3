@@ -239,13 +239,70 @@ async def update_game(client: DevClient, USER_FOLDER: Path):
                 await asyncio.sleep(2)
                 continue
             selected_game = games[choice_idx]
+            
             print(f"你選擇了遊戲：{selected_game['name']} (ID: {selected_game['id']})")
+            break
         except ValueError:
             print("❌ 請輸入有效的數字編號。")
             await asyncio.sleep(2)
             continue
     
-    pass
+    GAME_FOLDER = USER_FOLDER / f"{selected_game['id']}_{selected_game['name']}"
+    GAME_FOLDER.mkdir(exist_ok=True)
+    
+    print("等待下載資料中...")
+    await client.get_game_data(selected_game['id'], selected_game['name'], str(GAME_FOLDER))
+    
+    
+    while True:
+        clear_screen()
+        print("\n請將修改後的檔案放入以下資料夾：")
+        print(f"\n遊戲資料夾路徑：{GAME_FOLDER}")
+        print("修改完後輸入1上傳修改，輸入0取消更新遊戲")
+        cmd = input("").strip()
+        
+        if cmd == "1":
+            # todo
+            # 確認 game_server.py 和 game_client.py 是否存在
+            server_file = GAME_FOLDER / "game_server.py"
+            client_file = GAME_FOLDER / "game_client.py"
+            config_file = GAME_FOLDER / "config.txt"
+
+            if not server_file.exists():
+                print("❌ game_server.py 不存在，請確認後再繼續。")
+                await asyncio.sleep(2)
+                continue
+
+            if not client_file.exists():
+                print("❌ game_client.py 不存在，請確認後再繼續。")
+                await asyncio.sleep(2)
+                continue
+
+            if not config_file.exists():
+                print("❌ config.txt 不存在，請確認後再繼續。")
+                await asyncio.sleep(2)
+                continue
+
+            # 確認 config.txt 內容是否正確（非空且非預設內容）
+            request = await client.check_config(str(GAME_FOLDER))
+            if not request.get("ok"):
+                print(f"❌ config.txt 檢查失敗：{request.get('error', '未知錯誤')}")
+                await asyncio.sleep(2)
+                continue
+            
+            print("✅ config.txt 檢查通過。")
+            
+            #await client.create_game(selected_game['name'], str(GAME_FOLDER), request.get("config"))
+            
+            print("✅ 更新遊戲完成！")
+            break
+        elif cmd == "0":
+            print("✅ 已取消更新遊戲。")
+            break
+        else:
+            print("❌ 請輸入1或0。")
+            continue
+    
 
 async def change_game_status(client: DevClient):
     

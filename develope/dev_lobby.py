@@ -135,6 +135,11 @@ async def handle_request(req, writer):
         elif action == "change_game_status":
             resp = await db_request(req)
             return resp
+        elif action == "get_game_data":
+            print("✅ 取得遊戲資料請求：", data)
+            resp = await get_game_data(data)
+            return resp
+            
     
         
             
@@ -202,7 +207,29 @@ async def create_game(game_id,data):
     client_path.write_text(client_code, encoding="utf-8")
     print(f"✅ 已建立新遊戲資料夾：{NEW_GAME_FOLDER}")
     
+async def get_game_data(data):
     
+    game_id   = data.get("game_id")
+    game_name = data.get("game_name")
+    
+    GAME_FOLDER = Path(__file__).parent.parent / "games" / f"{game_id}_{game_name}"
+    print("✅ 讀取遊戲資料夾：", GAME_FOLDER)
+    
+    config_path = GAME_FOLDER / "config.json"
+    server_path = GAME_FOLDER / "game_server.py"
+    client_path = GAME_FOLDER / "game_client.py"
+    
+    data = {
+        "ok": True,
+        "data":{
+            "game_id": game_id,
+            "config": config_path.read_text(encoding="utf-8"),
+            "server_code": server_path.read_text(encoding="utf-8"),
+            "client_code": client_path.read_text(encoding="utf-8"),
+        }
+    }
+    
+    return data
     
 
 
