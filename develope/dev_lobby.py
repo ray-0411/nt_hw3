@@ -4,6 +4,7 @@ from common.network import send_msg, recv_msg
 import socket
 import subprocess
 import sys
+from pathlib import Path
 
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -93,6 +94,22 @@ async def handle_request(req, writer):
             print(f"🗂 使用者登出：id={uid}"    )
 
         return resp
+    
+    if collection == "Config":
+        
+        # === 4️⃣ Config 相關：取得 config 模板 ===
+        if action == "get_template":
+            # 確認模板檔案是否存在
+            try:
+                with open("develope/config.txt", "r", encoding="utf-8") as f:
+                    template_content = f.read()
+                resp = {"ok": True, "template": template_content}
+            except FileNotFoundError:
+                resp = {"ok": False, "error": "模板檔案 config.txt 不存在。"}
+            except Exception as e:
+                resp = {"ok": False, "error": f"讀取模板時發生錯誤：{str(e)}"}
+            return resp
+        
             
     # === 5️⃣ 其他未知請求 ===
     else:

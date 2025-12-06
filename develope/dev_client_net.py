@@ -1,5 +1,8 @@
 import asyncio
 from common.network import send_msg, recv_msg
+import os.path
+from pathlib import Path
+import json
 
 
 # 🟩 你自己的候選 Lobby IP 列表
@@ -99,3 +102,62 @@ class DevClient:
             self.user_id = None
             self.username = None
         return resp
+    
+    async def get_config(self, game_folder):
+        """
+        獲取 config 模板並寫入指定的遊戲資料夾
+        """
+        resp = await self._req("Config", "get_template")
+        if resp.get("ok"):
+            config_template = resp.get("template", "")
+            config_path = Path(game_folder) / "config.txt"
+            with open(config_path, "w", encoding="utf-8") as f:
+                f.write(config_template)
+            print(f"✅ 已建立 config.txt：{config_path}")
+        else:
+            print(f"❌ 無法取得 config 模板：{resp.get('error', '未知錯誤')}")
+        
+        return resp
+    
+    async def check_config(self, game_folder):
+        """
+        檢查指定遊戲資料夾中的 config.txt 是否存在且非空
+        """
+        config_path = Path(game_folder) / "config.txt"
+        
+        if not config_path.exists():
+            return {"ok": False, "error": "config.txt 不存在。"}
+        if os.path.getsize(config_path) == 0:
+            return {"ok": False, "error": "config.txt 為空檔案。"}
+        
+        #這裡要把config txt轉成json格式
+        
+        try:
+            # 讀取 config.txt
+            with config_path.open("r", encoding="utf-8") as f:
+                lines = f.readlines()
+            
+            # 解析 key=value 格式
+            config_dict = {}
+            for line in lines:
+                line = line.strip()
+                if not line or line.startswith("#"):  # 忽略空行和註解
+                    continue
+                if "=" in line:
+                    key, value = line.split("=", 1)
+                    config_dict[key.strip()] = value.strip()
+                else:
+                    return {"ok": False, "error": f"無效的設定行：{line}"}
+            
+            # 轉換為 JSON
+            config_json = json.dumps(config_dict, indent=4, ensure_ascii=False)
+            print("✅ config.txt 已成功轉換為 JSON 格式：")
+            print(config_json)
+            await asyncio.sleep(5)
+            
+            return {"ok": True, "config": config_json}
+        
+        
+        
+        except Exception as e:
+            return {"ok": False, "error": f"解析 config.txt 時發生錯誤：{e}"}
