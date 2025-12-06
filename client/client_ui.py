@@ -77,13 +77,10 @@ async def lobby_phase(client: LobbyClient):
         clear_screen()
         
         print(f"\n🎮 玩家：{client.username}")
-        print("1. 顯示線上使用者")
-        print("2. 顯示房間清單")
-        print("3. 建立房間")
-        print("4. 加入房間")
-        print("5. 查看邀請")
-        print("6. 觀戰遊戲")
-        print("7. 登出")
+        print("1. 查看遊戲商城")
+        print("2. 建立房間")
+        print("3. 加入房間")
+        print("4. 登出")
         cmd = input("請輸入指令：").strip()
 
         if cmd == "1":

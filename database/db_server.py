@@ -25,6 +25,8 @@ async def handle_request(req: dict):
         if collection == "Lobby":
             if action == "init":
                 return db.lobby_init()
+            elif action == "dev_init":
+                return db.dev_lobby_init()
         elif collection == "User":
             if action == "create":
                 return db.create_user(data["name"], data["password"])
@@ -34,11 +36,14 @@ async def handle_request(req: dict):
                 return db.logout_user(data["id"])
             elif action == "list_online":
                 return {"ok": True, "users": db.get_online_users()}
-
-        # ---------- Game ----------
-        elif collection == "Game":
-            if action == "report":
-                return db.report_game_result(data)                
+        
+        elif collection == "Dev_user":
+            if action == "create":
+                return db.dev_create_user(data["name"], data["password"])
+            elif action == "login":
+                return db.dev_login_user(data["name"], data["password"])
+            elif action == "logout":
+                return db.dev_logout_user(data["id"])
         
         return {"ok": False, "error": f"Unknown collection/action: {collection}/{action}"}
 

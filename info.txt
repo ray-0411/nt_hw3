@@ -1,0 +1,4 @@
+db port 14411
+lobby port 14110
+dev port 18110
+client 16800~16900
