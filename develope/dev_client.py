@@ -162,27 +162,27 @@ async def new_game(client: DevClient, USER_FOLDER: Path):
 
             if not server_file.exists():
                 print("❌ game_server.py 不存在，請確認後再繼續。")
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(2)
                 continue
 
             if not client_file.exists():
                 print("❌ game_client.py 不存在，請確認後再繼續。")
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(2)
                 continue
 
             if not config_file.exists():
                 print("❌ config.txt 不存在，請確認後再繼續。")
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(2)
                 continue
 
             # 確認 config.txt 內容是否正確（非空且非預設內容）
             request = await client.check_config(str(GAME_FOLDER))
             if not request.get("ok"):
                 print(f"❌ config.txt 檢查失敗：{request.get('error', '未知錯誤')}")
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(2)
                 continue
             
-            
+            await client.create_game(game_name, str(GAME_FOLDER), request.get("config"))
             
             print("✅ 新建遊戲完成！請前往遊戲狀態設定處發布遊戲。")
             break

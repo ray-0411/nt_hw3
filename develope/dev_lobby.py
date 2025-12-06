@@ -95,7 +95,7 @@ async def handle_request(req, writer):
 
         return resp
     
-    if collection == "Config":
+    if collection == "Dev_create_game":
         
         # === 4️⃣ Config 相關：取得 config 模板 ===
         if action == "get_template":
@@ -109,6 +109,8 @@ async def handle_request(req, writer):
             except Exception as e:
                 resp = {"ok": False, "error": f"讀取模板時發生錯誤：{str(e)}"}
             return resp
+    
+    
         
             
     # === 5️⃣ 其他未知請求 ===

@@ -107,7 +107,7 @@ class DevClient:
         """
         獲取 config 模板並寫入指定的遊戲資料夾
         """
-        resp = await self._req("Config", "get_template")
+        resp = await self._req("Dev_create_game", "get_template")
         if resp.get("ok"):
             config_template = resp.get("template", "")
             config_path = Path(game_folder) / "config.txt"
@@ -151,8 +151,35 @@ class DevClient:
             
             # 轉換為 JSON
             config_json = json.dumps(config_dict, indent=4, ensure_ascii=False)
-            print("✅ config.txt 已成功轉換為 JSON 格式：")
-            print(config_json)
+            #print("✅ config.txt 已成功轉換為 JSON 格式：")
+            #print(config_json)
+            
+            #確認json值正確
+            config_wrong = False
+            if config_dict.get("name") == "*":
+                config_wrong = True
+            if version := config_dict.get("version"):
+                try:
+                    float(version)
+                except ValueError:
+                    config_wrong = True
+
+            if config_dict.get("game_type") not in ["cli", "gui", "multi"]:
+                config_wrong = True
+            
+            if config_dict.get("max_players"):
+                try:
+                    int(config_dict.get("max_players"))
+                    if int(config_dict.get("max_players")) <= 0:
+                        config_wrong = True
+                except ValueError:
+                    config_wrong = True
+                
+                
+            
+            if config_wrong:
+                return {"ok": False, "error": "config.txt 內容有誤，請確認各欄位值是否正確。"}
+            
             await asyncio.sleep(5)
             
             return {"ok": True, "config": config_json}
@@ -161,3 +188,17 @@ class DevClient:
         
         except Exception as e:
             return {"ok": False, "error": f"解析 config.txt 時發生錯誤：{e}"}
+        
+    async def create_game(self, game_name, game_folder, config_json):
+        """
+        向 Lobby Server 註冊新遊戲
+        """
+        data = {
+            "user_id": self.user_id,
+            "game_name": game_name,
+            "game_folder": game_folder
+        }
+        
+        resp = await self._req("Game", "create", data)
+        return resp
+    

@@ -1,5 +1,7 @@
 #change * place
 name = * 
+
+#only x.x is avaliable
 version = 1.0
 
 #game type : cli/gui/multi
