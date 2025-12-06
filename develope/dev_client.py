@@ -94,15 +94,11 @@ async def first_phase(client: DevClient):
 
         if cmd == "1":
             await new_game(client, USER_FOLDER)
-            time.sleep(1.5)
         elif cmd == "2":
-            #todo
-            print("功能尚未實作，敬請期待！")
+            await update_game(client, USER_FOLDER)
             time.sleep(1.5)
         elif cmd == "3":
-            #todo
-            print("功能尚未實作，敬請期待！")
-            time.sleep(1.5)
+            await change_game_status(client)
         elif cmd == "4":
             resp = await client.logout()
             if resp.get("ok"):
@@ -212,6 +208,93 @@ async def new_game(client: DevClient, USER_FOLDER: Path):
     
     pass
 
+
+async def update_game(client: DevClient, USER_FOLDER: Path):
+    
+    mygames = await client.get_my_games() 
+    
+    if not mygames.get("ok"):
+        print(f"❌ 無法取得遊戲列表：{mygames.get('error', '未知錯誤')}")
+        await asyncio.sleep(2)
+        return
+    
+    games = mygames.get("games", [])
+    if not games:
+        print("⚠️ 你目前沒有任何已建立的遊戲。")
+        await asyncio.sleep(2)
+        return
+    
+    while True:
+        clear_screen()
+        print("\n=== 🛠 更新遊戲 ===")
+        for idx, game in enumerate(games, start=1):
+            print(f"{idx}. {game['name']} (ID: {game['id']})")
+        choice = input("請輸入要更新的遊戲編號（輸入0返回上層選單）：").strip()
+        if choice == "0":
+            return
+        try:
+            choice_idx = int(choice) - 1
+            if choice_idx < 0 or choice_idx >= len(games):
+                print("❌ 無效的遊戲編號。")
+                await asyncio.sleep(2)
+                continue
+            selected_game = games[choice_idx]
+            print(f"你選擇了遊戲：{selected_game['name']} (ID: {selected_game['id']})")
+        except ValueError:
+            print("❌ 請輸入有效的數字編號。")
+            await asyncio.sleep(2)
+            continue
+    
+    pass
+
+async def change_game_status(client: DevClient):
+    
+    mygames = await client.get_my_games()
+    if not mygames.get("ok"):
+        print(f"❌ 無法取得遊戲列表：{mygames.get('error', '未知錯誤')}")
+        await asyncio.sleep(2)
+        return
+    games = mygames.get("games", [])
+    if not games:
+        print("⚠️ 你目前沒有任何已建立的遊戲。")
+        await asyncio.sleep(2)
+        return 
+    
+    while True:
+        clear_screen()
+        print("\n=== 🎮 調整遊戲狀態 ===")
+        for idx, game in enumerate(games, start=1):
+            status = "上架中" if game.get("visible") else "未上架"
+            print(f"{idx}. {game['name']} (ID: {game['id']}) - 狀態：{status}")
+        
+        print("輸入x y將遊戲編號x的狀態改為y（1=上架，0=下架）")
+        print("輸入0返回上層選單")
+        choice = input("").strip()
+        
+        if choice == "0":
+            return
+        try:
+            parts = choice.split()
+            if len(parts) != 2:
+                raise ValueError
+            game_idx = int(parts[0]) - 1
+            new_status = int(parts[1])
+            if game_idx < 0 or game_idx >= len(games) or new_status not in (0, 1):
+                raise ValueError
+            selected_game = games[game_idx]
+            resp = await client.change_game_status(selected_game['id'], new_status)
+            if resp.get("ok"):
+                print(f"✅ 已將遊戲 '{selected_game['name']}' 狀態更新為 {'上架中' if new_status else '未上架'}。")
+                # 更新本地遊戲列表狀態
+                selected_game['visible'] = bool(new_status)
+                await asyncio.sleep(2)
+            else:
+                print(f"❌ 更新遊戲狀態失敗：{resp.get('error', '未知錯誤')}")
+                await asyncio.sleep(2)
+        except ValueError:
+            print("❌ 請輸入正確的格式，例如：1 1")
+            await asyncio.sleep(2)
+
 async def main():
     client = DevClient()
     connected = await client.connect()
@@ -236,6 +319,9 @@ def clear_screen():
         os.system("cls")
     else:
         os.system("clear")
+
+
+    
 
 if __name__ == "__main__":
     asyncio.run(main())

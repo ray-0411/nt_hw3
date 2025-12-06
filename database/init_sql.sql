@@ -31,10 +31,9 @@ CREATE TABLE IF NOT EXISTS games (
     entry_server TEXT,                 -- 啟動 server 指令
     entry_client TEXT,                 -- 啟動 client 指令
     short_desc TEXT,
-    visible INTEGER NOT NULL DEFAULT 1,
+    visible INTEGER NOT NULL DEFAULT 0, -- 0=隱藏, 1=公開
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT,
-    FOREIGN KEY (dev_user_id) REFERENCES users(id)
+    updated_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS game_reviews (
@@ -43,7 +42,5 @@ CREATE TABLE IF NOT EXISTS game_reviews (
     user_id INTEGER NOT NULL,
     rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
     comment TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (game_id) REFERENCES games(id),
-    FOREIGN KEY (user_id) REFERENCES users(id)
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

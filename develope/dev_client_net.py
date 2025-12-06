@@ -211,3 +211,26 @@ class DevClient:
         resp = await self._req("Dev_create_game", "create_send", data)
         return resp
     
+    async def get_my_games(self):
+        """
+        獲取目前使用者的遊戲列表
+        """
+        data = {
+            "user_id": self.user_id
+        }
+        
+        resp = await self._req("Dev_update_game", "get_my_games", data)
+        return resp
+    
+    async def change_game_status(self, game_id, new_status):
+        """
+        更改指定遊戲的狀態
+        """
+        data = {
+            "user_id": self.user_id,
+            "game_id": game_id,
+            "new_status": new_status
+        }
+        
+        resp = await self._req("Dev_update_game", "change_game_status", data)
+        return resp

@@ -49,6 +49,12 @@ async def handle_request(req: dict):
             if action == "create_game":
                 return db.dev_create_game(data)
         
+        elif collection == "Dev_update_game":
+            if action == "get_my_games":
+                return db.dev_get_my_games(data["user_id"])
+            elif action == "change_game_status":
+                return db.dev_change_game_status(data["game_id"], data["new_status"])
+        
         return {"ok": False, "error": f"Unknown collection/action: {collection}/{action}"}
 
     except KeyError as e:

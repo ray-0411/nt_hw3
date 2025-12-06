@@ -226,3 +226,43 @@ def dev_create_game(data: dict):
     except Exception as e:
         print("❌ dev_create_game error:", e)
         return {"ok": False, "error": str(e)}
+
+def dev_get_my_games(user_id: int):
+    
+    """取得使用者的遊戲列表"""
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT id, name, visible FROM games WHERE dev_user_id=? ORDER BY id",
+                (user_id,)
+            )
+            rows = cur.fetchall()
+            games = []
+            for row in rows:
+                games.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "visible": row[2],
+                })
+        return {"ok": True, "games": games}
+    except Exception as e:
+        print("❌ dev_get_my_games error:", e)
+        return {"ok": False, "error": str(e)}
+    
+
+def dev_change_game_status(game_id: int, new_status: str):
+    """更新遊戲狀態"""
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE games SET visible=?, updated_at=datetime('now') WHERE id=?",
+                (new_status, game_id)
+            )
+            conn.commit()
+        print(f"🛠 遊戲狀態更新: id={game_id}, new_status={new_status}")
+        return {"ok": True, "msg": f"Game id={game_id} status updated to '{new_status}'."}
+    except Exception as e:
+        print("❌ dev_update_game_status error:", e)
+        return {"ok": False, "error": str(e)}

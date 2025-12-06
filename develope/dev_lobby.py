@@ -112,8 +112,6 @@ async def handle_request(req, writer):
         
         elif action == "create_send":
             
-            
-            
             resp = await db_request({
                 "collection":"Dev_game",
                 "action":"create_game",
@@ -129,7 +127,14 @@ async def handle_request(req, writer):
             
             return resp
             
-            
+    if collection == "Dev_update_game":
+        # === 4️⃣ 更新遊戲列表 ===
+        if action == "get_my_games":
+            resp = await db_request(req)
+            return resp
+        elif action == "change_game_status":
+            resp = await db_request(req)
+            return resp
     
         
             
