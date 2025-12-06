@@ -3,6 +3,7 @@ import hashlib
 from datetime import datetime
 import uuid
 import os
+import json
 
 
 DB_PATH = "data.db"
@@ -189,3 +190,39 @@ def dev_logout_user(user_id: int):
 
     print(f"🗂 使用者登出: id={user_id}, name={username}")
     return {"ok": True, "id": user_id, "name": username, "msg": "User logged out."}
+
+def dev_create_game(data: dict):
+    """建立新遊戲記錄"""
+    name = data.get("game_name", "Unnamed Game")
+    config = data.get("config", "{}")
+    json_config = json.loads(config)
+    dev_user_id = data.get("user_id", None)
+    game_type = json_config.get("game_type", "unknown")
+    max_players = json_config.get("max_players", 1)
+    current_version = json_config.get("version", "1.0.0")
+    entry_server = json_config.get("entry_server", "game_server.py")
+    entry_client = json_config.get("entry_client", "game_client.py")
+    short_desc = json_config.get("description", "")
+    
+    
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """INSERT INTO games 
+                (dev_user_id, name, game_type, 
+                max_players, current_version, 
+                entry_server, entry_client, 
+                short_desc, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))""",
+                (dev_user_id, name, game_type, 
+                max_players, current_version, 
+                entry_server, entry_client, short_desc)
+            )
+            conn.commit()
+            game_id = cur.lastrowid
+        print(f"🎮 新遊戲建立: id={game_id}, name={data['game_name']}, by user_id={data['user_id']}")
+        return {"ok": True, "game_id": game_id, "msg": f"Game '{data['game_name']}' created."}
+    except Exception as e:
+        print("❌ dev_create_game error:", e)
+        return {"ok": False, "error": str(e)}

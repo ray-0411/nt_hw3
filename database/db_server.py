@@ -45,6 +45,10 @@ async def handle_request(req: dict):
             elif action == "logout":
                 return db.dev_logout_user(data["id"])
         
+        elif collection == "Dev_game":
+            if action == "create_game":
+                return db.dev_create_game(data)
+        
         return {"ok": False, "error": f"Unknown collection/action: {collection}/{action}"}
 
     except KeyError as e:

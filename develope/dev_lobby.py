@@ -109,7 +109,27 @@ async def handle_request(req, writer):
             except Exception as e:
                 resp = {"ok": False, "error": f"讀取模板時發生錯誤：{str(e)}"}
             return resp
-    
+        
+        elif action == "create_send":
+            
+            
+            
+            resp = await db_request({
+                "collection":"Dev_game",
+                "action":"create_game",
+                "data":{
+                    "user_id": data.get("user_id"),
+                    "game_name": data.get("game_name"),
+                    "config": data.get("config"),
+                }
+            })
+            
+            if resp.get("ok"):
+                await create_game(resp.get("game_id"),data)
+            
+            return resp
+            
+            
     
         
             
@@ -150,6 +170,35 @@ async def handle_client(reader, writer):
         except (ConnectionResetError, OSError):
             # ✅ 忽略 WinError 64 等常見錯誤
             pass
+
+async def create_game(game_id,data):
+    
+    user_id     = data.get("user_id")
+    game_name   = data.get("game_name")
+    config_json = data.get("config")
+    server_code = data.get("server_code")
+    client_code = data.get("client_code")
+    
+    # 建立 developer_folder
+    GAMESFOLDER = Path(__file__).parent.parent / "games"
+    GAMESFOLDER.mkdir(exist_ok=True)
+    
+    # 建立使用者專屬資料夾 [game_id]_[username]
+    NEW_GAME_FOLDER = GAMESFOLDER / f"{game_id}_{game_name}"
+    NEW_GAME_FOLDER.mkdir(exist_ok=True)
+    
+    # 寫入遊戲檔案
+    config_path = NEW_GAME_FOLDER / "config.json"
+    server_path = NEW_GAME_FOLDER / "game_server.py"
+    client_path = NEW_GAME_FOLDER / "game_client.py"
+    
+    config_path.write_text(config_json, encoding="utf-8")
+    server_path.write_text(server_code, encoding="utf-8")
+    client_path.write_text(client_code, encoding="utf-8")
+    print(f"✅ 已建立新遊戲資料夾：{NEW_GAME_FOLDER}")
+    
+    
+    
 
 
 # -------------------------------

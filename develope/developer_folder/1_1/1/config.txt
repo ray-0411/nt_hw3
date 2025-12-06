@@ -1,17 +1,17 @@
 #change * place
-name = * 
+name = 123 
 
 #only x.x is avaliable
 version = 1.0
 
 #game type : cli/gui/multi
-game_type = * 
+game_type = cli 
 
-max_players = *
+max_players = 2
 
 # how to start your game
 entry_server = python -m game.game_server {port} {room_id}
 entry_client = python -m game.game_client {host} {port} {user_id}
 
 # discribe your game
-description = *
+description = 4945

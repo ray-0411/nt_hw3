@@ -5,6 +5,7 @@ import time
 import msvcrt
 import subprocess
 from pathlib import Path
+import json
 
 
 async def login_phase(client: DevClient):
@@ -116,11 +117,11 @@ async def new_game(client: DevClient, USER_FOLDER: Path):
     while True:
         clear_screen()
         print("\n=== 🆕 新建遊戲 ===")
-        game_name = input("遊戲名稱（輸入0返回上層選單）：").strip()
+        game_name = input("遊戲資料夾名稱（輸入0返回上層選單）：").strip()
         if game_name == "0":
             return
         if not game_name:
-            print("❌ 遊戲名稱不可為空。")
+            print("❌ 遊戲資料夾名稱不可為空。")
             time.sleep(1.5)
             continue
         
@@ -181,6 +182,11 @@ async def new_game(client: DevClient, USER_FOLDER: Path):
                 print(f"❌ config.txt 檢查失敗：{request.get('error', '未知錯誤')}")
                 await asyncio.sleep(2)
                 continue
+            
+            config_json = json.loads(request.get("config"))
+            
+            game_name = config_json.get("name", game_name)
+            print(f"✅ config.txt 檢查通過，遊戲名稱：{game_name}")
             
             await client.create_game(game_name, str(GAME_FOLDER), request.get("config"))
             

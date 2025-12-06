@@ -158,6 +158,7 @@ class DevClient:
             config_wrong = False
             if config_dict.get("name") == "*":
                 config_wrong = True
+            
             if version := config_dict.get("version"):
                 try:
                     float(version)
@@ -193,12 +194,20 @@ class DevClient:
         """
         向 Lobby Server 註冊新遊戲
         """
+        game_folder = Path(game_folder)
+        
+        server_py   = game_folder / "game_server.py"
+        client_py   = game_folder / "game_client.py"
+        
+        
         data = {
             "user_id": self.user_id,
             "game_name": game_name,
-            "game_folder": game_folder
+            "config": config_json,
+            "server_code": server_py.read_text(encoding="utf-8"),
+            "client_code": client_py.read_text(encoding="utf-8"),
         }
         
-        resp = await self._req("Game", "create", data)
+        resp = await self._req("Dev_create_game", "create_send", data)
         return resp
     
