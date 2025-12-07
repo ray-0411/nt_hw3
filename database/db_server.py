@@ -54,6 +54,8 @@ async def handle_request(req: dict):
                 return db.dev_get_my_games(data["user_id"])
             elif action == "change_game_status":
                 return db.dev_change_game_status(data["game_id"], data["new_status"])
+            elif action == "update_game":
+                return db.dev_update_game(data)
         
         return {"ok": False, "error": f"Unknown collection/action: {collection}/{action}"}
 

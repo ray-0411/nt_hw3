@@ -250,9 +250,12 @@ async def update_game(client: DevClient, USER_FOLDER: Path):
     GAME_FOLDER = USER_FOLDER / f"{selected_game['id']}_{selected_game['name']}"
     GAME_FOLDER.mkdir(exist_ok=True)
     
+    game_id = selected_game['id']
     print("等待下載資料中...")
-    await client.get_game_data(selected_game['id'], selected_game['name'], str(GAME_FOLDER))
-    
+    config = await client.get_game_data(selected_game['id'], selected_game['name'], str(GAME_FOLDER))
+    old_version = json.loads(config).get("version", "未知版本")
+    print(f"✅ 下載完成，當前遊戲版本：{old_version}")
+    await asyncio.sleep(1.5)
     
     while True:
         clear_screen()
@@ -266,7 +269,7 @@ async def update_game(client: DevClient, USER_FOLDER: Path):
             # 確認 game_server.py 和 game_client.py 是否存在
             server_file = GAME_FOLDER / "game_server.py"
             client_file = GAME_FOLDER / "game_client.py"
-            config_file = GAME_FOLDER / "config.txt"
+            config_file = GAME_FOLDER / "config.json"
 
             if not server_file.exists():
                 print("❌ game_server.py 不存在，請確認後再繼續。")
@@ -279,20 +282,20 @@ async def update_game(client: DevClient, USER_FOLDER: Path):
                 continue
 
             if not config_file.exists():
-                print("❌ config.txt 不存在，請確認後再繼續。")
+                print("❌ config.json 不存在，請確認後再繼續。")
                 await asyncio.sleep(2)
                 continue
 
             # 確認 config.txt 內容是否正確（非空且非預設內容）
-            request = await client.check_config(str(GAME_FOLDER))
+            request = await client.check_config_json(str(GAME_FOLDER),old_version)
             if not request.get("ok"):
-                print(f"❌ config.txt 檢查失敗：{request.get('error', '未知錯誤')}")
+                print(f"❌ config.json 檢查失敗：{request.get('error', '未知錯誤')}")
                 await asyncio.sleep(2)
                 continue
             
             print("✅ config.txt 檢查通過。")
             
-            #await client.create_game(selected_game['name'], str(GAME_FOLDER), request.get("config"))
+            await client.update_game(str(GAME_FOLDER), request.get("config") ,game_id)
             
             print("✅ 更新遊戲完成！")
             break

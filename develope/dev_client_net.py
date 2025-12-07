@@ -175,17 +175,13 @@ class DevClient:
                         config_wrong = True
                 except ValueError:
                     config_wrong = True
-                
-                
             
             if config_wrong:
                 return {"ok": False, "error": "config.txt 內容有誤，請確認各欄位值是否正確。"}
             
-            await asyncio.sleep(5)
+            #await asyncio.sleep(5)
             
             return {"ok": True, "config": config_json}
-        
-        
         
         except Exception as e:
             return {"ok": False, "error": f"解析 config.txt 時發生錯誤：{e}"}
@@ -258,7 +254,77 @@ class DevClient:
         server_path.write_text(server_code, encoding="utf-8")
         client_path.write_text(client_code, encoding="utf-8")
         
+        return config
+    
+    async def check_config_json(self, game_folder, old_version):
+        """
+        檢查指定遊戲資料夾中的 config.json 是否存在且非空，且版本是否更新
+        """
+        config_path = Path(game_folder) / "config.json"
+        
+        if not config_path.exists():
+            return {"ok": False, "error": "config.json 不存在。"}
+        if os.path.getsize(config_path) == 0:
+            return {"ok": False, "error": "config.json 為空檔案。"}
+        
+        try:
+            # 讀取 config.json
+            with config_path.open("r", encoding="utf-8") as f:
+                config_dict = json.load(f)
+            
+            config_error = False
+            if config_dict.get("name") == "*":
+                config_error = True
+            if config_dict.get("name") is None:
+                config_error = True
+            
+            if version := config_dict.get("version"):
+                try:
+                    float(version)
+                    if float(version) <= float(old_version):
+                        return {"ok": False, "error": f"遊戲版本未更新，當前版本：{old_version}，請確認後再繼續。"}
+                except ValueError:
+                    config_error = True
+            
+            if config_dict.get("game_type") not in ["cli", "gui", "multi"]:
+                config_error = True
+            
+            if config_dict.get("max_players"):
+                try:
+                    int(config_dict.get("max_players"))
+                    if int(config_dict.get("max_players")) <= 0:
+                        config_error = True
+                except ValueError:
+                    config_error = True
+            
+            if config_error:
+                return {"ok": False, "error": "config.json 內容有誤，請確認各欄位值是否正確。"}
+            
+            return {"ok": True, "config": config_dict}
+        
+        except Exception as e:
+            return {"ok": False, "error": f"解析 config.json 時發生錯誤：{e}"}
+        
+    async def update_game(self, game_folder, config ,game_id):
+        """
+        向 Lobby Server 註冊新遊戲
+        """
+        game_folder = Path(game_folder)
+        
+        config_json = json.dumps(config, indent=4, ensure_ascii=False)
+        server_py   = game_folder / "game_server.py"
+        client_py   = game_folder / "game_client.py"
+        
+        
+        data = {
+            "user_id": self.user_id,
+            "game_id": game_id,
+            "game_name": config.get("name", "未知遊戲"),
+            "config": config_json,
+            "server_code": server_py.read_text(encoding="utf-8"),
+            "client_code": client_py.read_text(encoding="utf-8"),
+        }
+        
+        resp = await self._req("Dev_update_game", "update_game", data)
         return resp
-        
-        
-        
+

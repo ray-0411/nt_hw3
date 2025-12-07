@@ -126,6 +126,8 @@ async def handle_request(req, writer):
                 await create_game(resp.get("game_id"),data)
             
             return resp
+        
+        
             
     if collection == "Dev_update_game":
         # === 4️⃣ 更新遊戲列表 ===
@@ -139,7 +141,23 @@ async def handle_request(req, writer):
             print("✅ 取得遊戲資料請求：", data)
             resp = await get_game_data(data)
             return resp
+        elif action == "update_game":
+            resp = await db_request({
+                "collection":"Dev_update_game",
+                "action":"update_game",
+                "data":{
+                    "game_id": data.get("game_id"),
+                    "user_id": data.get("user_id"),
+                    "game_name": data.get("game_name"),
+                    "config": data.get("config"),
+                }
+            })
+            print("✅ 更新遊戲資料請求：", data)
             
+            if resp.get("ok"):
+                await create_game(data.get("game_id"),data)
+            
+            return resp
     
         
             

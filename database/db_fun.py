@@ -266,3 +266,43 @@ def dev_change_game_status(game_id: int, new_status: str):
     except Exception as e:
         print("❌ dev_update_game_status error:", e)
         return {"ok": False, "error": str(e)}
+
+def dev_update_game(data: dict):
+    
+    """建立新遊戲記錄"""
+    game_id = data.get("game_id")
+    name = data.get("game_name", "Unnamed Game")
+    config = data.get("config", "{}")
+    json_config = json.loads(config)
+    dev_user_id = data.get("user_id", None)
+    game_type = json_config.get("game_type", "unknown")
+    max_players = json_config.get("max_players", 1)
+    current_version = json_config.get("version", "1.0.0")
+    entry_server = json_config.get("entry_server", "game_server.py")
+    entry_client = json_config.get("entry_client", "game_client.py")
+    short_desc = json_config.get("description", "")
+    
+    print("🛠 更新遊戲資料: ", data)
+    
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """UPDATE games SET 
+                name=?, game_type=?, 
+                max_players=?, current_version=?, 
+                entry_server=?, entry_client=?, 
+                short_desc=?, updated_at=datetime('now')
+                WHERE id=? AND dev_user_id=?""",
+                (name, game_type, 
+                max_players, current_version, 
+                entry_server, entry_client, 
+                short_desc, game_id, dev_user_id)
+            )
+            conn.commit()
+        print(f"🛠 遊戲更新: id={game_id}, name={name}, by user_id={dev_user_id}")
+        return {"ok": True, "msg": f"Game id={game_id} updated."}
+    except Exception as e:
+        print("❌ dev_update_game error:", e)
+        return {"ok": False, "error": str(e)}
+    

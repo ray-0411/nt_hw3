@@ -1,6 +1,6 @@
 {
     "name": "123",
-    "version": "1.0",
+    "version": "2.0",
     "game_type": "cli",
     "max_players": "2",
     "entry_server": "python -m game.game_server {port} {room_id}",
