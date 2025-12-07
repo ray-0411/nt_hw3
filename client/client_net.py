@@ -1,5 +1,6 @@
 import asyncio
 from common.network import send_msg, recv_msg
+from pathlib import Path
 
 
 # 🟩 你自己的候選 Lobby IP 列表
@@ -192,3 +193,28 @@ class LobbyClient:
 
         data = {"user_id": self.user_id}
         return await self._req("games", "game_list", data)
+    
+    async def download_game(self, game_id, game_name):
+        """下載指定遊戲資料"""
+        if not self.user_id:
+            return {"ok": False, "error": "請先登入"}
+
+        data = {"game_id": game_id, "game_name": game_name}
+        resp = await self._req("games", "download_game", data)
+        
+        print("✅ 下載遊戲回應：", resp)
+        
+        USER_PATH = Path(__file__).parent / f"user_{self.user_id}_{self.username}"
+        USER_PATH.mkdir(exist_ok=True)
+        
+        GAME_PATH = USER_PATH / f"{game_id}_{game_name}"
+        GAME_PATH.mkdir(exist_ok=True)
+        
+        config_path = GAME_PATH / "config.json"
+        client_path = GAME_PATH / "game_client.py"
+        
+        config_path.write_text(resp.get("data").get("config"), encoding="utf-8")
+        client_path.write_text(resp.get("data").get("client_code"), encoding="utf-8")
+        
+        print(f"✅ 已下載遊戲資料到：{GAME_PATH}")
+        return resp

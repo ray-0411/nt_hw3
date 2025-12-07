@@ -118,7 +118,20 @@ async def lobby_phase(client: LobbyClient):
                     print(f"遊戲版本：{game['current_version']}")
                     print(f"遊戲最大人數：{game['max_players']}")
                     
-                    input("\n🔙 按下 Enter 鍵返回遊戲清單...")
+                    cmd2 = input("\n輸入1下載遊戲，或輸入0返回：")
+                    if cmd2 == "0":
+                        continue
+                    elif cmd2 == "1":
+                        clear_screen()
+                        print(f"\n⬇️ 下載遊戲：{game['name']}")
+                        resp2 = await client.download_game(game['id'], game['name'])
+                        
+                        if resp2.get("ok"):
+                            print("✅ 下載完成！")
+                        else:
+                            print(f"❌ 下載失敗：{resp2.get('error', '未知錯誤')}")
+                        
+                        input("\n🔙 按下 Enter 鍵返回遊戲清單...")
                 except (ValueError, IndexError):
                     print("❌ 無效輸入，請再試一次。")
                     time.sleep(1)

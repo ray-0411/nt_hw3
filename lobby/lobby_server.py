@@ -5,6 +5,7 @@ import socket
 import subprocess
 import time
 import sys
+from pathlib import Path
 
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
@@ -488,6 +489,11 @@ async def handle_request(req, writer):
             print("✅ 取得遊戲列表請求")
             resp = await db_request(req)
             return resp
+        elif action == "download_game":
+            
+            print(f"✅ 下載遊戲資料請求：{data}")
+            return await download_game(data)
+            
 
 
     # === 5️⃣ 其他未知請求 ===
@@ -572,6 +578,33 @@ async def handle_client(reader, writer):
             # ✅ 忽略 WinError 64 等常見錯誤
             pass
 
+async def download_game(data):
+    """下載指定遊戲資料"""
+    game_id = data.get("game_id")
+    game_name = data.get("game_name")
+    
+    GAME_PATH = Path(__file__).parent.parent / "games" / f"{game_id}_{game_name}"
+    
+    config_path = GAME_PATH / "config.json"
+    game_client_path = GAME_PATH / "game_client.py"
+    
+    # 模擬從資料庫取得遊戲資料
+    # 在真實情況下，這裡會有更多邏輯來讀取遊戲檔案
+    print(f"📥 下載遊戲資料：id={game_id}, name={game_name}")
+    
+    if not GAME_PATH.exists():
+        return {"ok": False, "error": "遊戲資料不存在。"}
+    if not config_path.exists() or not game_client_path.exists():
+        return {"ok": False, "error": "遊戲檔案不完整。"}
+    
+    # 模擬遊戲資料內容
+    game_data = {
+        "config": config_path.read_text(),
+        "client_code" : game_client_path.read_text(),
+    }
+    
+    return {"ok": True, "data": game_data}
+    
 
 # -------------------------------
 # 主程式入口
