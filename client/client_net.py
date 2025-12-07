@@ -28,8 +28,8 @@ class LobbyClient:
 
     def __init__(self, hosts=None, port=14110):
         self.hosts = hosts or [
+            "140.113.66.30",   # my ip            
             "140.113.17.11",
-            "140.113.66.30",   # my ip 
         ]
         
         self.host = self.hosts[0]  # 預設使用第一個 host
@@ -184,3 +184,11 @@ class LobbyClient:
         }
 
         return await self._req("Invite", "respond", data)
+    
+    async def list_games(self):
+        """查詢自己建立的遊戲列表"""
+        if not self.user_id:
+            return {"ok": False, "error": "請先登入"}
+
+        data = {"user_id": self.user_id}
+        return await self._req("games", "game_list", data)

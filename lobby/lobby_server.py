@@ -483,7 +483,11 @@ async def handle_request(req, writer):
             # 🔸 最後回覆 Game Server 一個成功訊息
             return {"ok": True}
             
-            
+    elif collection == "games":
+        if action == "game_list":
+            print("✅ 取得遊戲列表請求")
+            resp = await db_request(req)
+            return resp
 
 
     # === 5️⃣ 其他未知請求 ===

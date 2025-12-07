@@ -86,23 +86,44 @@ async def lobby_phase(client: LobbyClient):
         if cmd == "1":
             clear_screen()
             
-            resp = await client.list_online_users()
-            users = resp.get("users", [])
-
-            print("\n📋 線上使用者清單：")
-            if not users:
-                print("（目前沒有使用者在線上）")
-            else:
-                # 過濾掉自己
-                others = [name for uid, name in users if uid != client.user_id]
-
-                if not others:
-                    print("（目前只有你在線上）")
-                else:
-                    for i, name in enumerate(others, start=1):
-                        print(f"{i}. {name}")
-
-            input("\n🔙 按下 Enter 鍵返回選單...")
+            resp = await client.list_games()
+            #print(resp)
+            
+            while True:
+                clear_screen()
+                
+                if not resp.get("ok"):
+                    print("⚠️ 無法取得遊戲列表。")
+                    time.sleep(1.5)
+                    break
+                if not resp.get("games"):
+                    print("（目前沒有建立的遊戲）")
+                    input("\n🔙 按下 Enter 鍵返回選單...")
+                    break
+                
+                print("\n📋 遊戲清單：")
+                
+                for idx , game in enumerate(resp.get("games", []), start=1):
+                    print(f"{idx}.{game['name']}")
+            
+                cmd = input("\n輸入清單編後查看遊戲詳情，或輸入0離開：")
+                if cmd == "0":
+                    break
+                try:
+                    game = resp.get("games", [])[int(cmd)-1]
+                    clear_screen()
+                    print("\n🎲 遊戲詳情：")
+                    print(f"遊戲名稱：{game['name']}")
+                    print(f"遊戲描述：{game['short_desc']}")
+                    print(f"遊戲版本：{game['current_version']}")
+                    print(f"遊戲最大人數：{game['max_players']}")
+                    
+                    input("\n🔙 按下 Enter 鍵返回遊戲清單...")
+                except (ValueError, IndexError):
+                    print("❌ 無效輸入，請再試一次。")
+                    time.sleep(1)
+                    continue
+                    
 
         elif cmd == "2":
             clear_screen()

@@ -306,3 +306,34 @@ def dev_update_game(data: dict):
         print("❌ dev_update_game error:", e)
         return {"ok": False, "error": str(e)}
     
+def get_game_list():
+    
+    """取得所有可見的遊戲列表"""
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT id, name, game_type, max_players, 
+                current_version, short_desc FROM games 
+                WHERE visible=1 ORDER BY id"""
+            )
+            rows = cur.fetchall()
+            games = []
+            for row in rows:
+                games.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "game_type": row[2],
+                    "max_players": row[3],
+                    "current_version": row[4],
+                    "short_desc": row[5],
+                })
+        print("✅ 取得遊戲列表成功")
+        return {"ok": True, "games": games}
+    except Exception as e:
+        print("❌ get_game_list error:", e)
+        return {"ok": False, "error": str(e)}
+    
+    
+    
+    
