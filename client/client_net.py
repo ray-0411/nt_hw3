@@ -106,15 +106,13 @@ class LobbyClient:
         data = {"only_available": only_available}
         return await self._req("Room", "list", data)
 
-    async def create_room(self, name, visibility="public", password=None):
+    async def create_room(self, name, game_id):
         if not self.user_id:
             return {"ok": False, "error": "請先登入"}
         
         data = {"name": name, 
                 "host_user_id": self.user_id, 
-                "visibility": visibility}
-        if password:
-            data["password"] = password
+                "game_id": game_id}
         
         return await self._req("Room", "create", data)
     
@@ -146,46 +144,7 @@ class LobbyClient:
     # -------------------------------
     # 邀請相關
     # -------------------------------
-    
-    async def send_invite(self, target_user_id, room_id):
-        """發送邀請給其他玩家"""
-        if not self.user_id:
-            return {"ok": False, "error": "請先登入"}
 
-        # 準備邀請資料
-        data = {
-            "inviter_id": self.user_id,   # 發送者
-            "invitee_id": target_user_id, # 接收者
-            "room_id": room_id
-        }
-
-        # 傳送請求給 Lobby Server
-        resp = await self._req("Invite", "create", data)
-
-        # 回傳伺服器回應
-        return resp
-
-    async def list_invites(self):
-        """查詢自己收到的邀請"""
-        if not self.user_id:
-            return {"ok": False, "error": "請先登入"}
-
-        data = {"user_id": self.user_id}
-        return await self._req("Invite", "list", data)
-
-    async def respond_invite(self, invite_id, accept=True):
-        """回應邀請（accept=True 同意，False 拒絕）"""
-        if not self.user_id:
-            return {"ok": False, "error": "請先登入"}
-
-        data = {
-            "invitee_id": self.user_id,   # 自己（被邀請者）
-            "invite_id": invite_id,       # 要處理的邀請編號
-            "accept": accept              # True 同意, False 拒絕
-        }
-
-        return await self._req("Invite", "respond", data)
-    
     async def list_games(self):
         """查詢自己建立的遊戲列表"""
         if not self.user_id:
@@ -202,7 +161,7 @@ class LobbyClient:
         data = {"game_id": game_id, "game_name": game_name}
         resp = await self._req("games", "download_game", data)
         
-        print("✅ 下載遊戲回應：", resp)
+        #print("✅ 下載遊戲回應：", resp)
         
         USER_PATH = Path(__file__).parent / f"user_{self.user_id}_{self.username}"
         USER_PATH.mkdir(exist_ok=True)
