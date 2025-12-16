@@ -1,0 +1,19 @@
+#change * place
+name = Battleship_5x5_Network
+
+#only x.x is avaliable
+version = 1.0
+
+#game type : cli/gui/multi
+# 雖然是網路版，但因為你使用的是 tkinter GUI 介面，類型標記為 gui
+game_type = gui
+
+max_players = 2
+
+# how to start your game
+# don't change this
+entry_server = python games/game_server.py {port} 
+entry_client = python games/game_client.py {host} {port} {user_id}
+
+# discribe your game
+description = 基於 Python Tkinter 開發的 5x5 雙人網路海戰棋。使用 3-2-1-1 船隻配置規則、9格禁區限制及沉船戰損顯示。

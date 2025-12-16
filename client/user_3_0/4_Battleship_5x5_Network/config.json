@@ -1,0 +1,9 @@
+{
+    "name": "Battleship_5x5_Network",
+    "version": "1.0",
+    "game_type": "gui",
+    "max_players": "2",
+    "entry_server": "python games/game_server.py {port}",
+    "entry_client": "python games/game_client.py {host} {port} {user_id}",
+    "description": "基於 Python Tkinter 開發的 5x5 雙人網路海戰棋。使用 3-2-1-1 船隻配置規則、9格禁區限制及沉船戰損顯示。"
+}
