@@ -158,7 +158,7 @@ async def handle_request(req, writer):
             rooms[rid] = {
                 "name": name,
                 "host_id": host_id,
-                "guest_id": None,
+                "guest_id": [],
                 "game_id": game_id,
                 "player_num": 1,
                 "enabled_plugins": ["chat"],
@@ -175,22 +175,27 @@ async def handle_request(req, writer):
         # 列出公開房間（只轉發）
         elif action == "list":
             try:
-                only_available = data.get("only_available", "space")
                 result = []
                 
                 for rid, r in rooms.items():
-                    if only_available == r["status"]:
-                        result.append({
-                            "id": rid,
-                            "name": r["name"],
-                            "host": online_users[r["host_id"]]["name"],
-                            "visibility": r["visibility"],
-                            "status": r["status"]
-                        })
+                    #if only_available == r["status"]:
+                    result.append({
+                        "id": rid,
+                        "name": r["name"],
+                        "host": online_users[r["host_id"]]["name"],
+                        "status": r["status"],
+                        "game_id": r["game_id"],
+                    })
                     
-
+                #***
+                #print(f"result:{result}")
+                
                 return {"ok": True, "rooms": result}
+
             except Exception as e:
+                #***
+                #print(f"⚠️ 列出房間錯誤: {e}")
+                
                 return {"ok": False, "error": str(e)}
             
         elif action == "close":
@@ -207,9 +212,10 @@ async def handle_request(req, writer):
                 return {"ok": False, "error": "Only the host can close the room."}
             
             # 🟩 若房間裡有 guest，通知他房間被關閉
-            guest_id = room.get("guest_id")
-            if guest_id and guest_id in online_users:
-                online_users[guest_id]["room_id"] = None
+            
+            for guest_id in room.get("guest_id", []):
+                if guest_id and guest_id in online_users:
+                    online_users[guest_id]["room_id"] = None
 
             # 🟩 更新房主狀態
             if host_id in online_users:
@@ -223,73 +229,51 @@ async def handle_request(req, writer):
         elif action == "join":
             rid = data.get("room_id")
             uid = data.get("user_id")
-            password = data.get("password")
 
+            print(f"🎯 使用者 {uid} 嘗試加入房間 {rid}")
             # 🟩 檢查房間是否存在
             if rid not in rooms:
                 return {"ok": False, "error": "房間不存在。"}
             room = rooms[rid]
 
-            # 🟩 檢查是否為私人房，若是就比對密碼
-            if room["visibility"] == "private":
-                if not password:
-                    return {"ok": False, "error": "此房間為私人房，請輸入密碼。"}
-                if password != room["password"]:
-                    return {"ok": False, "error": "密碼錯誤。"}
-
             return await join_room(uid, rid)
         
         elif action == "status":
+            #print(f"🎯 房間狀態查詢請求：{data}")
             rid = data.get("room_id")
             room = rooms.get(rid)
 
-            if not room:
-                return {"ok": False, "error": "Room not found."}
+            try:
+                if not room:
+                    return {"ok": False, "error": "Room not found."}
 
-            # 從 online_users 查出 guest 名字
-            guest_id = room.get("guest_id")
-            guest_name = None
-            if guest_id and guest_id in online_users:
-                guest_name = online_users[guest_id]["name"]
+                # 從 online_users 查出 guest 名字
+                guest_ids = room.get("guest_id", [])
+                guest_names = []
+
+                for uid in guest_ids:
+                    if uid in online_users:
+                        guest_names.append(online_users[uid]["name"])
+                    
                 
-            
-            host = get_host_ip()
-            game_port = room.get("port")
+                host = get_host_ip()
+                game_port = room.get("port")
 
-            return {
-                "ok": True,
-                "status": room["status"],
-                "guest_joined": bool(guest_id),
-                "guest_id": guest_id,
-                "guest_name": guest_name,
-                "game_host": host,
-                "game_port": game_port
-            }
+                return {
+                    "ok": True,
+                    "status": room["status"],
+                    "guest_joined": len(guest_ids) > 0,
+                    "guest_id": guest_ids,
+                    "guest_name": guest_names,
+                    "game_id": room["game_id"],
+                    "game_host": host,
+                    "game_port": game_port,
+                    "plugins": room["enabled_plugins"]
+                }
+            except Exception as e:
+                print(f"⚠️ 查詢房間狀態錯誤: {e}")
+                return {"ok": False, "error": str(e)}
         
-        elif action == "kick":
-            rid = data.get("room_id")
-            room = rooms.get(rid)
-
-            if not room:
-                return {"ok": False, "error": "Room not found."}
-
-            guest_id = room.get("guest_id")
-            if not guest_id:
-                return {"ok": False, "error": "No guest to kick."}
-
-            # 從 online_users 查出 guest 名字
-            guest_name = online_users.get(guest_id, {}).get("name", "未知玩家")
-
-            # 清空 guest 資料並重設狀態
-            room["guest_id"] = None
-            room["status"] = "space"
-
-            # 更新 guest 狀態
-            if guest_id in online_users:
-                online_users[guest_id]["room_id"] = None
-
-            print(f"👢 房主踢出了玩家 {guest_name} (id={guest_id}) from room {rid}")
-            return {"ok": True, "msg": f"玩家 {guest_name} 已被踢出。"}
 
         elif action == "leave":
             rid = data.get("room_id")
@@ -311,22 +295,6 @@ async def handle_request(req, writer):
                 return {"ok": True, "msg": "你已離開房間。"}
 
             return {"ok": False, "error": "你不在該房間中。"}
-
-        elif action == "watch":
-            rid = data.get("room_id")
-            room = rooms.get(rid)
-            
-            if not room:
-                return {"ok": False, "error": "Room not found."}
-            
-            host = get_host_ip()
-            game_port = room.get("port")
-
-            return {
-                "ok": True,
-                "game_host": host,
-                "game_port": game_port
-            }
             
 
     # === 3️⃣ Game 相關 ===
@@ -349,35 +317,32 @@ async def handle_request(req, writer):
 #重複function
 
 async def join_room(uid: int, rid: int):
-    room = rooms.get(rid)
-    if not room:
-        return {"ok": False, "error": "房間不存在。"}
-    
-    if uid not in online_users:
-        return {"ok": False, "error": "使用者未登入。"}
-
-    # 🟩  檢查房間狀態
-    if room["status"] == "full":
-        return {"ok": False, "error": "房間已滿。"}
-    if room["status"] == "play":
-        return {"ok": False, "error": "遊戲已開始，無法加入。"}
-    
-    # 🟩  確認使用者沒有同時在其他房
-    user_info = online_users.get(uid)
-    if user_info["room_id"] is not None:
-        return {"ok": False, "error": "你已在其他房間中。"}
+    try:
+        room = rooms.get(rid)
+        if not room:
+            return {"ok": False, "error": "房間不存在。"}
+        
+        if uid not in online_users:
+            return {"ok": False, "error": "使用者未登入。"}
 
 
-    # 🟩 更新房間與玩家狀態
-    room["guest_id"] = uid
-    room["status"] = "full"
-    online_users[uid]["room_id"] = rid
+        # 🟩  確認使用者沒有同時在其他房
+        user_info = online_users.get(uid)
+        if user_info["room_id"] is not None:
+            return {"ok": False, "error": "你已在其他房間中。"}
 
-    guest_name = user_info["name"]
+        # 🟩 更新房間與玩家狀態
+        room["guest_id"].append(uid)
+        online_users[uid]["room_id"] = rid
 
-    print(f"🎮 玩家 {guest_name} (id={uid}) 加入房間 {rid}")
+        guest_name = user_info["name"]
 
-    return {"ok": True, "room_id": rid}
+        print(f"🎮 玩家 {guest_name} (id={uid}) 加入房間 {rid}")
+
+        return {"ok": True, "room_id": rid}
+    except Exception as e:
+        print(f"⚠️ 加入房間錯誤: {e}")
+        return {"ok": False, "error": str(e)}
 
 # -------------------------------
 # 玩家連線處理
