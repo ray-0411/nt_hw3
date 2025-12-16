@@ -1,7 +1,7 @@
 import asyncio
 from common.network import send_msg, recv_msg
 from pathlib import Path
-
+import json
 
 # 🟩 你自己的候選 Lobby IP 列表
 LOBBY_CANDIDATES = [
@@ -131,7 +131,7 @@ class LobbyClient:
             "user_id": self.user_id
         }
         
-        print(f"🚪 嘗試加入房間：{room_id} ...")
+        #print(f"🚪 嘗試加入房間：{room_id} ...")
         
         return await self._req("Room", "join", data)
 
@@ -178,3 +178,55 @@ class LobbyClient:
         
         print(f"✅ 已下載遊戲資料到：{GAME_PATH}")
         return resp
+    
+    
+    async def get_game_version(self, game_id):
+        """取得指定遊戲版本"""
+        if not self.user_id:
+            return {"ok": False, "error": "請先登入"}
+
+        data = {"game_id": game_id}
+        resp = await self._req("games", "get_version", data)
+        version = resp.get("current_version")
+        #print(f"✅ 遊戲版本：{version}")
+        return version
+    
+    async def get_local_game_version(self, game_id):
+        """取得本地遊戲版本"""
+        if not self.user_id:
+            return {"ok": False, "error": "請先登入"}
+        
+        game_name = await self.game_id_to_name(game_id)
+        #print(f"✅ 遊戲名稱：{game_name}")
+
+        USER_PATH = Path(__file__).parent / f"user_{self.user_id}_{self.username}"
+        GAME_PATH = USER_PATH / f"{game_id}_{game_name}"
+        config_path = GAME_PATH / "config.json"
+        
+        if not config_path.exists():
+            return -1
+
+        config_data = json.loads(config_path.read_text(encoding="utf-8"))
+        local_version = config_data.get("version", "unknown")
+        #print(f"✅ 本地遊戲版本：{local_version}")
+        return local_version
+    
+    async def game_id_to_name(self, game_id):
+        """將遊戲 ID 轉換為遊戲名稱"""
+        #print(f"🔍 轉換遊戲 ID 為名稱：{game_id} ...")
+        try:
+            if not self.user_id:
+                return {"ok": False, "error": "請先登入"}
+
+            data = {"game_id": game_id}
+            resp = await self._req("games", "id_to_name", data)
+            if not resp.get("ok"):
+                return resp
+            game_name = resp.get("game_name")
+            #print(f"✅ 遊戲名稱：{game_name}")
+            return game_name
+        except Exception as e:
+            print(f"❌ 轉換遊戲 ID 為名稱失敗：{e}")
+            return {"ok": False, "error": str(e)}
+        
+    

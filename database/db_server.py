@@ -60,6 +60,10 @@ async def handle_request(req: dict):
         elif collection == "games":
             if action == "game_list":
                 return db.get_game_list()
+            elif action == "get_version":
+                return db.get_game_version(data["game_id"])
+            elif action == "id_to_name":
+                return db.get_game_name_by_id(data["game_id"])
         
         return {"ok": False, "error": f"Unknown collection/action: {collection}/{action}"}
 

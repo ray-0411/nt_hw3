@@ -179,13 +179,18 @@ async def handle_request(req, writer):
                 
                 for rid, r in rooms.items():
                     #if only_available == r["status"]:
-                    result.append({
-                        "id": rid,
-                        "name": r["name"],
-                        "host": online_users[r["host_id"]]["name"],
-                        "status": r["status"],
-                        "game_id": r["game_id"],
-                    })
+                    if online_users[r["host_id"]]["room_id"] == rid:
+                        result.append({
+                            "id": rid,
+                            "name": r["name"],
+                            "host": online_users[r["host_id"]]["name"],
+                            "status": r["status"],
+                            "game_id": r["game_id"],
+                        })
+                    else:
+                        print(f"⚠️ 房間 {rid} 狀態不符，跳過列出。")
+                        print(f"host room id:{online_users[r['host_id']]['room_id']}")
+                        print(f"room host id:{r['host_id']}")
                     
                 #***
                 #print(f"result:{result}")
@@ -254,22 +259,29 @@ async def handle_request(req, writer):
                 for uid in guest_ids:
                     if uid in online_users:
                         guest_names.append(online_users[uid]["name"])
+                    else:
+                        rooms[rid]["guest_id"].remove(uid)
                     
                 
                 host = get_host_ip()
                 game_port = room.get("port")
 
-                return {
+                resp = {
                     "ok": True,
                     "status": room["status"],
                     "guest_joined": len(guest_ids) > 0,
                     "guest_id": guest_ids,
                     "guest_name": guest_names,
+                    "host_id": room["host_id"],
                     "game_id": room["game_id"],
                     "game_host": host,
                     "game_port": game_port,
                     "plugins": room["enabled_plugins"]
                 }
+                #print(f"🎯 房間狀態回應：{resp}")
+                
+                return resp
+                
             except Exception as e:
                 print(f"⚠️ 查詢房間狀態錯誤: {e}")
                 return {"ok": False, "error": str(e)}
@@ -287,7 +299,7 @@ async def handle_request(req, writer):
             if not user_info:
                 return {"ok": False, "error": "使用者未登入。"}
 
-            if uid == room["guest_id"]:
+            if room["guest_id"] and uid in room["guest_id"]:
                 print(f"👋 玩家 {user_info['name']} 離開房間 {rid}")
                 room["guest_id"] = None
                 room["status"] = "space"
@@ -307,7 +319,16 @@ async def handle_request(req, writer):
             
             print(f"✅ 下載遊戲資料請求：{data}")
             return await download_game(data)
-            
+        
+        elif action == "get_version":
+            print(f"✅ 取得遊戲版本請求：{data}")
+            resp = await db_request(req)
+            return resp
+        
+        elif action == "id_to_name":
+            print(f"✅ 透過遊戲 ID 取得名稱請求：{data}")
+            resp = await db_request(req)
+            return resp
 
 
     # === 5️⃣ 其他未知請求 ===

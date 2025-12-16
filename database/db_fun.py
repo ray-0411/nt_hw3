@@ -333,7 +333,42 @@ def get_game_list():
     except Exception as e:
         print("❌ get_game_list error:", e)
         return {"ok": False, "error": str(e)}
+
+def get_game_version(game_id: int):
+    """取得指定遊戲的目前版本"""
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT current_version FROM games WHERE id=?",
+                (game_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return {"ok": False, "error": "Game not found."}
+            current_version = row[0]
+        print(f"✅ 取得遊戲版本成功: game_id={game_id}, version={current_version}")
+        return {"ok": True, "current_version": current_version}
+    except Exception as e:
+        print("❌ get_game_version error:", e)
+        return {"ok": False, "error": str(e)}
     
+def get_game_name_by_id(game_id: int):
     
-    
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT name FROM games WHERE id=?",
+                (game_id,)
+            )
+            row = cur.fetchone()
+            if not row:
+                return {"ok": False, "error": "Game not found."}
+            game_name = row[0]
+        print(f"✅ 取得遊戲名稱成功: game_id={game_id}, name={game_name}")
+        return {"ok": True, "game_name": game_name}
+    except Exception as e:
+        print("❌ get_game_name_by_id error:", e)
+        return {"ok": False, "error": str(e)}
     

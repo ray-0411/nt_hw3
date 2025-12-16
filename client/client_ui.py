@@ -201,7 +201,6 @@ async def lobby_phase(client: LobbyClient):
             # 顯示結果
             if resp.get("ok"):
                 print(f"✅ 房間「{name}」建立成功！（遊戲：{game['name']}）")
-                time.sleep(1)
                 
                 await room_wait_phase(client, resp["room_id"], name, selected_game_id)
             else:
@@ -222,7 +221,7 @@ async def lobby_phase(client: LobbyClient):
                 rooms = resp.get("rooms", [])
                 
                 #***
-                print(f"resp:{resp}")
+                #print(f"resp:{resp}")
 
                 if not rooms:
                     print("（目前沒有可加入的房間）")
@@ -299,6 +298,18 @@ async def room_wait_phase(client, room_id, room_name, game_id):
     last_guest_state = None
     press_button = 0
     last_refresh = 0
+    
+    game_name = await client.game_id_to_name(game_id)
+    #await asyncio.sleep(3)
+    
+    game_version = await client.get_game_version(game_id)
+    #print(f"🎯 遊戲版本：{game_version}")
+    
+    myversion = await client.get_local_game_version(game_id)
+    #print(f"🎯 本地版本：{myversion}")
+    
+    await asyncio.sleep(2)
+    
 
     async def check_guest_join():
         #todo
@@ -310,7 +321,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                 # 向伺服器查詢房間狀態
                 resp = await client._req("Room", "status", {"room_id": room_id})
                 #print(f"房間狀態回應：{resp}")
-                if resp and resp.get("ok"):
+                if resp and resp.get("ok") and resp.get("guest_joined") :
                     guest_joined = resp.get("guest_joined", False)
                     guest_name = resp.get("guest_name", None)
                 else:
@@ -331,10 +342,14 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                 clear_screen()
                 press_button = 0
                 print(f"\n🏠 房間等待中：{room_name} (ID={room_id})")
-                print(f"遊戲 ID：{game_id}")
+                #game_name = client.game_id_to_name(game_id)
+                print(f"遊戲 名稱：{game_name} (ID={game_id})\n")
                 
                 if guest_joined:
-                    print(f"🎉 玩家 {guest_name} 已加入！")
+                    print(f"🎉 房內已有玩家")
+                    for idx, gname in enumerate(guest_name, start=1):
+                        print(f"👤 玩家{idx}：{gname}")
+                    
                     print("【1】開始遊戲")
                     print("【2】解散房間")
                 else:
@@ -353,21 +368,29 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                     if key == "1":  # 開始遊戲
                         clear_screen()
                         print("🚀 開始遊戲！")
-                        resp = await client._req("Game", "ready", {"room_id": room_id})
+                        
+                        if game_version != myversion:
+                            print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
+                            
+                            
+                            continue
+                        
+                        # resp = await client._req("Game", "ready", {"room_id": room_id})
 
-                        if resp.get("ok"):
-                            host = resp.get("game_host")
-                            port = resp.get("game_port")
-                            print(f"🎮 啟動遊戲客戶端連線到 {host}:{port}")
+                        
+                        # if resp.get("ok"):
+                        #     host = resp.get("game_host")
+                        #     port = resp.get("game_port")
+                        #     print(f"🎮 啟動遊戲客戶端連線到 {host}:{port}")
 
-                            #print(f"🧩 啟動參數：['python', '-m', 'game.game_server', '{port}','{client.user_id}']")
-                            subprocess.run(["python", "-m", "game.client_game", host, str(port), str(client.user_id)])
-                            await client.close_room(room_id)
-                        else:
-                            print(f"⚠️ 無法啟動遊戲：{resp.get('error')}")
+                        #     #print(f"🧩 啟動參數：['python', '-m', 'game.game_server', '{port}','{client.user_id}']")
+                        #     subprocess.run(["python", "-m", "game.client_game", host, str(port), str(client.user_id)])
+                        #     await client.close_room(room_id)
+                        # else:
+                        #     print(f"⚠️ 無法啟動遊戲：{resp.get('error')}")
 
-                        stop_flag = True
-                        break
+                        # stop_flag = True
+                        # break
                     
                     elif key == "2":  # 解散
                         resp = await client.close_room(room_id)
@@ -400,14 +423,16 @@ async def room_wait_phase(client, room_id, room_name, game_id):
 async def guest_wait_phase(client, room_id, room_name):
     """加入者等待房主開始遊戲（無需重整畫面）"""
     stop_flag = False
+    respout = {}
 
     async def check_room_status():
         """背景任務：定期檢查房間狀態"""
-        nonlocal stop_flag
+        nonlocal stop_flag, respout
         while not stop_flag:
             try:
                 try:
                     resp = await client._req("Room", "status", {"room_id": room_id})
+                    respout = resp
                 except Exception as e:
                     print(f"⚠️ 無法取得房間狀態：{e}")
                 #print(f"房間狀態回應：{resp}")
@@ -418,13 +443,6 @@ async def guest_wait_phase(client, room_id, room_name):
                     break
 
                 status = resp.get("status")
-                guest_id = resp.get("guest_id")
-
-                if not guest_id:
-                    print("\n👢 你已被房主踢出房間。")
-                    await asyncio.sleep(3)
-                    stop_flag = True
-                    break
 
                 if status == "play":
                     clear_screen()
@@ -452,20 +470,39 @@ async def guest_wait_phase(client, room_id, room_name):
 
             await asyncio.sleep(1)
 
-    # 顯示一次畫面
-    clear_screen()
-    print(f"\n🚪 加入房間：{room_name} (ID={room_id})")
-    print("⏳ 等待房主開始遊戲...")
-    print("房內玩家：")
-    print(f" - 房主：{client.username} (你)")
-    for idx, pname in enumerate(["guest_id"], start=0):
-        print(f" - 玩家{idx+1}：{pname}")
-    print("\n【1】離開房間")
-    
     listener = asyncio.create_task(check_room_status())
-
+    resp = respout
+    respl = {}
+    last_refresh = 0
+    
     try:
-        while not stop_flag:
+        while True:
+            resp = respout
+            host_id = resp.get("host_id")
+            guest_id = resp.get("guest_id")
+
+            # 顯示一次畫面
+            
+            if not stop_flag and ((time.time() - last_refresh > 10) or (resp != respl)):
+                clear_screen()
+                #print("resp:", resp)
+                print(f"\n🚪 加入房間：{room_name} (ID={room_id})")
+                print("⏳ 等待房主開始遊戲...")
+                try:
+                    print("房內玩家：")
+                    print(f" - 房主：{host_id}")
+                    for idx, pname in enumerate(guest_id, start=0):
+                        print(f" - 玩家{idx+1}：{pname}")
+                except Exception as e:
+                    print(f"⚠️ 顯示玩家列表錯誤：{e}")
+                print("\n【1】離開房間")
+                
+                last_refresh = time.time()
+                respl = resp
+        
+
+
+        
             if msvcrt.kbhit():
                 key = msvcrt.getch().decode("utf-8", errors="ignore")
                 if key == "1":
@@ -480,10 +517,16 @@ async def guest_wait_phase(client, room_id, room_name):
                     break
 
             await asyncio.sleep(0.05)
+        
+            if stop_flag:
+                break
+    
     finally:
         await asyncio.sleep(3)
         stop_flag = True
         listener.cancel()
+        
+        
 
 
 async def main():
