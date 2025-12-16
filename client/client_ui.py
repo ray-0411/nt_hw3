@@ -217,7 +217,7 @@ async def lobby_phase(client: LobbyClient):
                 print("\n🚪 加入房間")
 
                 # 先列出房間清單
-                resp = await client.list_rooms(only_available="space")
+                resp = await client.list_rooms()
                 rooms = resp.get("rooms", [])
                 
                 #***
@@ -371,9 +371,13 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         
                         if game_version != myversion:
                             print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
-                            
-                            
+                            await client.download_game(game_id, game_name)
+                            print("✅ 遊戲更新完成！")
                             continue
+                        
+                        input("\n🔙 按下 Enter 鍵繼續...")
+                        
+                        
                         
                         # resp = await client._req("Game", "ready", {"room_id": room_id})
 
@@ -479,7 +483,7 @@ async def guest_wait_phase(client, room_id, room_name):
         while True:
             resp = respout
             host_id = resp.get("host_id")
-            guest_id = resp.get("guest_id")
+            guest_name = resp.get("guest_name")
 
             # 顯示一次畫面
             
@@ -491,7 +495,7 @@ async def guest_wait_phase(client, room_id, room_name):
                 try:
                     print("房內玩家：")
                     print(f" - 房主：{host_id}")
-                    for idx, pname in enumerate(guest_id, start=0):
+                    for idx, pname in enumerate(guest_name, start=0):
                         print(f" - 玩家{idx+1}：{pname}")
                 except Exception as e:
                     print(f"⚠️ 顯示玩家列表錯誤：{e}")
@@ -499,9 +503,6 @@ async def guest_wait_phase(client, room_id, room_name):
                 
                 last_refresh = time.time()
                 respl = resp
-        
-
-
         
             if msvcrt.kbhit():
                 key = msvcrt.getch().decode("utf-8", errors="ignore")

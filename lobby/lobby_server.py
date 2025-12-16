@@ -58,7 +58,7 @@ online_users = {}
 #         "game_id": int,            # 綁定哪一款遊戲（對應 dev_games.id）
 #         "player_num": int,         # 目前房間實際玩家數 = 1 + len(guest_id)
 #         "enabled_plugins": list[str],  # 啟用中的 plugin 名稱/ID 清單
-#         "status": str               # 房間狀態：space / play
+#         "status": str               # 房間狀態：space / play / delete
 #     }
 # }
 rooms = {}
@@ -177,6 +177,9 @@ async def handle_request(req, writer):
             try:
                 result = []
                 
+                print(f"rooms:{rooms}")
+                print(f"online_users:{online_users}")
+                
                 for rid, r in rooms.items():
                     #if only_available == r["status"]:
                     if online_users[r["host_id"]]["room_id"] == rid:
@@ -191,7 +194,9 @@ async def handle_request(req, writer):
                         print(f"⚠️ 房間 {rid} 狀態不符，跳過列出。")
                         print(f"host room id:{online_users[r['host_id']]['room_id']}")
                         print(f"room host id:{r['host_id']}")
-                    
+                
+                
+                
                 #***
                 #print(f"result:{result}")
                 

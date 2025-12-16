@@ -102,9 +102,12 @@ class LobbyClient:
     # -------------------------------
     # 房間相關
     # -------------------------------
-    async def list_rooms(self, only_available="space"):
-        data = {"only_available": only_available}
-        return await self._req("Room", "list", data)
+    async def list_rooms(self):
+        try:
+            return await self._req("Room", "list")
+        except Exception as e:
+            print(f"❌ 列出房間失敗：{e}")
+            return {"ok": False, "error": str(e)}
 
     async def create_room(self, name, game_id):
         if not self.user_id:
