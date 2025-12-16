@@ -35,6 +35,12 @@ class BattleshipServer:
                         self.ready_players.add(player_id)
                         if len(self.ready_players) == 2:
                             self.broadcast("START")
+                    elif cmd == "NOT_READY":
+                        # 當玩家重製時，從就緒名單移除
+                        if player_id in self.ready_players:
+                            self.ready_players.remove(player_id)
+                        print(f"玩家 {player_id} 取消就緒 (重製中)")
+                        
                     else:
                         # 轉發所有攻擊 (ATTACK) 與 結果 (RESULT) 指令
                         self.broadcast(cmd)
