@@ -377,6 +377,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         clear_screen()
                         #print("🚀 開始遊戲！")
                         
+                        
                         if game_version != myversion:
                             print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
                             await client.download_game(game_id, game_name)
@@ -384,6 +385,19 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                             myversion = await client.get_local_game_version(game_id)
                         else:
                             print("✅ 本地遊戲版本與伺服器版本相符。")
+                        
+                        game_info = {
+                            "game_id": game_id,
+                            "game_name": game_name
+                        }
+                        max_player = await client.max_player(game_info)
+                        
+                        if len(guest_name) + 1 > max_player:
+                            print(f"❌ 房間人數已超過遊戲最大人數 ({max_player})，無法開始遊戲！")
+                            press_button = 2
+                            await asyncio.sleep(1)
+                            continue
+                        
                         
                         resp = await client._req("Room", "ready", {"room_id": room_id})
                         
@@ -419,12 +433,11 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{game_name}" / "game_client.py"
                         subprocess.run(["python", str(client_path), str(host), str(port), str(client.user_id)])
                         
-                        clear_screen()
-                        print("遊戲結束，輸入1進行評分！")
+                        
+                        print("\n遊戲結束，輸入1進行評分！")
                         key = input()
                         if key == "1":
                             await grading_phase(client, game_id)
-                            print("✅ 感謝你的評分！")
                         else:
                             print("跳過評分，感謝遊玩！")
                         
@@ -492,7 +505,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
 
                 if status == "play":
                     clear_screen()
-                    print("\n🚀 房主已開始遊戲！")
+                    print("🚀 房主已開始遊戲！")
                     await asyncio.sleep(2)
                     game_host = resp.get("game_host")
                     game_port = resp.get("game_port")
@@ -505,7 +518,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                         
                         
                         
-                        print("遊戲結束，輸入1進行評分！")
+                        print("\n遊戲結束，輸入1進行評分！")
                         key = input()
                         if key == "1":
                             await grading_phase(client, game_id)

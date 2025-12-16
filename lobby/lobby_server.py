@@ -346,7 +346,8 @@ async def handle_request(req, writer):
 
             if room["guest_id"] and uid in room["guest_id"]:
                 print(f"👋 玩家 {user_info['name']} 離開房間 {rid}")
-                room["guest_id"] = None
+                if uid in room["guest_id"]:
+                    room["guest_id"].remove(uid)
                 room["status"] = "space"
                 user_info["room_id"] = None
                 return {"ok": True, "msg": "你已離開房間。"}
@@ -458,6 +459,9 @@ async def join_room(uid: int, rid: int):
         
         if uid not in online_users:
             return {"ok": False, "error": "使用者未登入。"}
+        
+        if room["status"] != "space":
+            return {"ok": False, "error": "房間無法加入，可能正在遊戲中。"}
 
 
         # 🟩  確認使用者沒有同時在其他房

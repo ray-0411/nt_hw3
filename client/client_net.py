@@ -259,4 +259,20 @@ class LobbyClient:
         }
         return await self._req("games", "grading", req_data)
         
-    
+    async def max_player(self, game_info):
+        """取得遊戲最大人數"""
+        if not self.user_id:
+            return {"ok": False, "error": "請先登入"}
+        
+        game_id = game_info.get("game_id")
+        game_name = game_info.get("game_name")
+
+        USER_PATH = Path(__file__).parent / f"user_{self.user_id}_{self.username}"
+        GAME_PATH = USER_PATH / f"{game_id}_{game_name}"
+        config_path = GAME_PATH / "config.json"
+        
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        max_players = int(config.get("max_players", 4))
+        
+        #print(f"✅ 遊戲最大人數：{max_players}")
+        return max_players

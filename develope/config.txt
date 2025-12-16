@@ -11,7 +11,7 @@ max_players = *
 
 # how to start your game
 # don't change this
-entry_server = python games/game_server.py {port} {room_id}
+entry_server = python games/game_server.py {port} 
 entry_client = python games/game_client.py {host} {port} {user_id}
 
 # discribe your game
