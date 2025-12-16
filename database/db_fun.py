@@ -313,11 +313,26 @@ def get_game_list():
         with get_conn() as conn:
             cur = conn.cursor()
             cur.execute(
-                """SELECT id, name, game_type, max_players, 
-                current_version, short_desc FROM games 
-                WHERE visible=1 ORDER BY id"""
+                """
+                SELECT 
+                    g.id,
+                    g.name,
+                    g.game_type,
+                    g.max_players,
+                    g.current_version,
+                    g.short_desc,
+                    IFNULL(AVG(r.rating), 0) AS avg_rating,
+                    COUNT(r.id) AS review_count
+                FROM games g
+                LEFT JOIN game_reviews r
+                    ON g.id = r.game_id
+                WHERE g.visible = 1
+                GROUP BY g.id
+                ORDER BY g.id
+                """
             )
             rows = cur.fetchall()
+            
             games = []
             for row in rows:
                 games.append({
@@ -327,7 +342,10 @@ def get_game_list():
                     "max_players": row[3],
                     "current_version": row[4],
                     "short_desc": row[5],
+                    "avg_rating": round(row[6], 2),   # 平均評分
+                    "review_count": row[7],           # 評論數量
                 })
+                
         print("✅ 取得遊戲列表成功")
         return {"ok": True, "games": games}
     except Exception as e:
@@ -371,4 +389,28 @@ def get_game_name_by_id(game_id: int):
     except Exception as e:
         print("❌ get_game_name_by_id error:", e)
         return {"ok": False, "error": str(e)}
+
+
+def grading(data: dict):
+    user_id = data.get("user_id")
+    game_id = data.get("game_id")
+    score = data.get("score")
+    comment = data.get("comment", "")
+    
+    try:
+        with get_conn() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """INSERT INTO game_reviews 
+                (user_id, game_id, rating, comment, created_at) 
+                VALUES (?, ?, ?, ?, datetime('now'))""",
+                (user_id, game_id, score, comment)
+            )
+            conn.commit()
+        print(f"✅ 遊戲評分成功: user_id={user_id}, game_id={game_id}, score={score}")
+        return {"ok": True, "msg": "Grading submitted."}
+    except Exception as e:
+        print("❌ grading error:", e)
+        return {"ok": False, "error": str(e)}
+    
     

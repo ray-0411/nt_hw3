@@ -64,6 +64,8 @@ async def handle_request(req: dict):
                 return db.get_game_version(data["game_id"])
             elif action == "id_to_name":
                 return db.get_game_name_by_id(data["game_id"])
+            elif action == "grading":
+                return db.grading(data)
         
         return {"ok": False, "error": f"Unknown collection/action: {collection}/{action}"}
 

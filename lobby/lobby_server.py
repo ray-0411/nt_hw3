@@ -436,6 +436,12 @@ async def handle_request(req, writer):
             print(f"✅ 透過遊戲 ID 取得名稱請求：{data}")
             resp = await db_request(req)
             return resp
+        
+        elif action == "grading":
+            print(f"✅ 遊戲評分請求：{data}")
+            resp = await db_request(req)
+            return resp
+        
 
 
     # === 5️⃣ 其他未知請求 ===

@@ -118,6 +118,7 @@ async def lobby_phase(client: LobbyClient):
                     print(f"遊戲描述：{game['short_desc']}")
                     print(f"遊戲版本：{game['current_version']}")
                     print(f"遊戲最大人數：{game['max_players']}")
+                    print(f"遊戲平均評分：{game['avg_rating']:.2f}（{game['review_count']}人評分）")
                     
                     cmd2 = input("\n輸入1下載或更新遊戲，或輸入0返回：")
                     if cmd2 == "0":
@@ -418,7 +419,16 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{game_name}" / "game_client.py"
                         subprocess.run(["python", str(client_path), str(host), str(port), str(client.user_id)])
                         
-                        input("🔙 按下 Enter 鍵繼續...")
+                        clear_screen()
+                        print("遊戲結束，輸入1進行評分！")
+                        key = input()
+                        if key == "1":
+                            await grading_phase(client, game_id)
+                            print("✅ 感謝你的評分！")
+                        else:
+                            print("跳過評分，感謝遊玩！")
+                        
+                        await asyncio.sleep(2)
                         
                         try:
                             resp = await client.close_room(room_id)
@@ -493,7 +503,17 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                         client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{await client.game_id_to_name(game_id)}" / "game_client.py"
                         subprocess.run(["python", str(client_path), game_host, str(game_port), str(client.user_id)])
                         
-                        input("\n🔙 按下 Enter 鍵返回選單...")
+                        
+                        
+                        print("遊戲結束，輸入1進行評分！")
+                        key = input()
+                        if key == "1":
+                            await grading_phase(client, game_id)
+                        else:
+                            print("跳過評分，感謝遊玩！")
+                        
+                        await asyncio.sleep(2)
+                        
                     else:
                         print("⚠️ 無法取得遊戲伺服器資訊 (host/port)")
                     
@@ -589,6 +609,46 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
         listener.cancel()
         
         
+async def grading_phase(client,game_id):
+    
+    """評分階段"""
+    clear_screen()
+    print("\n=== 🏆 評分階段 ===")
+    print("請輸入遊戲評分（1-5 分）：")
+    
+    while True:
+        score_input = input("評分：").strip()
+        try:
+            score = int(score_input)
+            if 1 <= score <= 5:
+                break
+            else:
+                print("❌ 評分必須在 1 到 5 分之間，請再試一次。")
+        except ValueError:
+            print("❌ 無效輸入，請輸入數字 1 到 5。")
+    
+    while True:
+        print("輸入簡單的評語（可選，按 Enter 跳過）：")
+        comment = input("評語：").strip()
+        if len(comment) <= 200:
+            break
+        else:
+            print("❌ 評語過長，請限制在 200 字以內。")
+    
+    data = {
+        "game_id": game_id,
+        "user_id": client.user_id,
+        "score": score,
+        "comment": comment
+    }
+    
+    resp = await client.grading(data)
+    if resp.get("ok"):
+        print("✅ 感謝你的評分！")
+    else:
+        print(f"❌ 評分失敗：{resp.get('error', '未知錯誤')}")
+    
+
 
 
 async def main():

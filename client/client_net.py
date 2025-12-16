@@ -245,3 +245,18 @@ class LobbyClient:
         
         return await self._req("Room", "guest_ready", data)
     
+    async def grading(self, data):
+        game_id = data.get("game_id")
+        user_id = data.get("user_id")
+        score  = data.get("score")
+        comment = data.get("comment")
+        
+        req_data = {
+            "game_id": game_id,
+            "user_id": user_id,
+            "score": score,
+            "comment": comment
+        }
+        return await self._req("games", "grading", req_data)
+        
+    
