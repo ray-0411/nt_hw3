@@ -1,17 +1,36 @@
+# -----------------------------
+# Game basic information
+# -----------------------------
+
 # change * place
 name = Rock Paper Scissors
 
-# only x.x is avaliable
-version = 1.0
+# only x.x is available
+version = 1.2
 
-# game type : cli/gui/multi
+# game type : cli / gui / multi
 game_type = cli
 
+# max number of players
 max_players = 2
 
-# how to start your game
-entry_server = python -m game.game_server {port} {room_id}
-entry_client = python -m game.game_client {host} {port} {user_id}
 
-# describe your game
-description = A simple CLI rock-paper-scissors game for two players.
+# -----------------------------
+# How to start the game
+# -----------------------------
+
+# entry command for game server
+# {port} will be replaced by Lobby
+# {room_id} will be replaced by Lobby
+entry_server = python game_server.py {port}
+
+# entry command for game client
+# {host}, {port}, {user_id} will be replaced by Lobby
+entry_client = python game_client.py {host} {port} {user_id}
+
+
+# -----------------------------
+# Game description
+# -----------------------------
+
+description = A CLI rock-paper-scissors game where each player has three cards and plays three rounds to determine the winner.

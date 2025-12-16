@@ -380,7 +380,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                             print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
                             await client.download_game(game_id, game_name)
                             print("✅ 遊戲更新完成！")
-                            continue
+                            myversion = await client.get_local_game_version(game_id)
                         else:
                             print("✅ 本地遊戲版本與伺服器版本相符。")
                         
@@ -411,6 +411,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         host = status.get("game_host")
                         port = status.get("game_port")
                         
+                        clear_screen()
                         print(f"🎮 連線到遊戲伺服器 {host}:{port} ...")
                         
                         client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{game_name}" / "game_client.py"
@@ -554,6 +555,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                     print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
                     await client.download_game(game_id, await client.game_id_to_name(game_id))
                     print("✅ 遊戲更新完成！")
+                    myversion = await client.get_local_game_version(game_id)
                 else:
                     print("✅ 本地遊戲版本與伺服器版本相符。")
                 

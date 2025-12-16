@@ -398,7 +398,7 @@ async def handle_request(req, writer):
                 
                 # 啟動遊戲伺服器子程序
                 server_py = Path("games") / f"{game_id}_{game_name}" / "game_server.py"
-                subprocess.Popen([sys.executable, str(server_py), str(game_port), str(rid)])
+                subprocess.Popen([sys.executable, str(server_py), str(game_port)])
                 
                 data = {
                     "room_id": rid,
