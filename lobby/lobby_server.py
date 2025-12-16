@@ -492,18 +492,22 @@ async def download_game(data):
     # 在真實情況下，這裡會有更多邏輯來讀取遊戲檔案
     print(f"📥 下載遊戲資料：id={game_id}, name={game_name}")
     
-    if not GAME_PATH.exists():
-        return {"ok": False, "error": "遊戲資料不存在。"}
-    if not config_path.exists() or not game_client_path.exists():
-        return {"ok": False, "error": "遊戲檔案不完整。"}
-    
-    # 模擬遊戲資料內容
-    game_data = {
-        "config": config_path.read_text(),
-        "client_code" : game_client_path.read_text(),
-    }
-    
-    return {"ok": True, "data": game_data}
+    try:
+        if not GAME_PATH.exists():
+            return {"ok": False, "error": "遊戲資料不存在。"}
+        if not config_path.exists() or not game_client_path.exists():
+            return {"ok": False, "error": "遊戲檔案不完整。"}
+        
+        # 模擬遊戲資料內容
+        game_data = {
+            "config": config_path.read_text(encoding="utf-8"),
+            "client_code": game_client_path.read_text(encoding="utf-8"),
+        }
+        
+        return {"ok": True, "data": game_data}
+    except Exception as e:
+        print(f"⚠️ 下載遊戲資料錯誤: {e}")
+        return {"ok": False, "error": str(e)}
     
 
 # -------------------------------
