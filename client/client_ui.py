@@ -4,6 +4,7 @@ import os
 import time
 import msvcrt
 import subprocess
+from pathlib import Path
 
 
 
@@ -208,7 +209,7 @@ async def lobby_phase(client: LobbyClient):
                 time.sleep(1)
                 continue
 
-            input("\n🔙 按下 Enter 鍵返回選單...")
+            #input("\n🔙 按下 Enter 鍵返回選單...")
 
         elif cmd == "3":
             finish = False
@@ -399,6 +400,22 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                                 key = input()
                         
                         print("🚀 開始遊戲！")
+                        
+                        data = {
+                            "room_id": room_id,
+                            "game_id": game_id,
+                            "game_name": game_name
+                        }
+                        data = await client._req("Room", "start_game", data)
+                        await asyncio.sleep(2)
+                        host = status.get("game_host")
+                        port = status.get("game_port")
+                        
+                        print(f"🎮 連線到遊戲伺服器 {host}:{port} ...")
+                        
+                        client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{game_name}" / "game_client.py"
+                        subprocess.run(["python", str(client_path), str(host), str(port), str(client.user_id)])
+                        
                         input("🔙 按下 Enter 鍵繼續...")
                         
                         try:
@@ -407,20 +424,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                             print(f"⚠️ 關閉房間時發生錯誤：{e}")
                         stop_flag = True
                         break
-                        
-                        # if resp.get("ok"):
-                        #     host = resp.get("game_host")
-                        #     port = resp.get("game_port")
-                        #     print(f"🎮 啟動遊戲客戶端連線到 {host}:{port}")
-
-                        #     #print(f"🧩 啟動參數：['python', '-m', 'game.game_server', '{port}','{client.user_id}']")
-                        #     subprocess.run(["python", "-m", "game.client_game", host, str(port), str(client.user_id)])
-                        #     await client.close_room(room_id)
-                        # else:
-                        #     print(f"⚠️ 無法啟動遊戲：{resp.get('error')}")
-
-                        # stop_flag = True
-                        # break
+                    
                     
                     elif key == "2":  # 解散
                         resp = await client.close_room(room_id)
@@ -477,15 +481,16 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                 if status == "play":
                     clear_screen()
                     print("\n🚀 房主已開始遊戲！")
-                    
+                    await asyncio.sleep(2)
                     game_host = resp.get("game_host")
                     game_port = resp.get("game_port")
                     
                     if game_host and game_port:
                         print(f"🎮 連線到遊戲伺服器 {game_host}:{game_port} ...")
-
-                        #print(f"🧩 啟動參數：['python', '-m', 'game.game_server', '{game_port}','''{client.user_id}']")
-                        #subprocess.run(["python","-m","game.client_game", game_host, str(game_port),str(client.user_id)])
+                        await asyncio.sleep(1)
+                        client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{await client.game_id_to_name(game_id)}" / "game_client.py"
+                        subprocess.run(["python", str(client_path), game_host, str(game_port), str(client.user_id)])
+                        
                         input("\n🔙 按下 Enter 鍵返回選單...")
                     else:
                         print("⚠️ 無法取得遊戲伺服器資訊 (host/port)")
@@ -527,7 +532,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                 
                 print(f"\n🚪 加入房間：{room_name} (ID={room_id})")
                 print("⏳ 等待房主開始遊戲...")
-                print(f"status:{status}")
+                #print(f"status:{status}")
                 try:
                     print("房內玩家：")
                     print(f" - 房主：{host_id}")
@@ -544,7 +549,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                 clear_screen()
                 
                 print(f"\n🚪 加入房間：{room_name} (ID={room_id})")
-                print(f"version:{game_version} local:{myversion}")
+                #print(f"version:{game_version} local:{myversion}")
                 if game_version != myversion:
                     print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
                     await client.download_game(game_id, await client.game_id_to_name(game_id))
@@ -555,11 +560,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                 print("⏳ 等待所有玩家完成準備，準備完後遊戲即將開始...")
                 ready_wait = True
                 await client.guest_ready(room_id)
-            
-            if status == "play":
-                clear_screen()
-                print("\n🚀 房主已開始遊戲！")
-                input("\n🔙 按下 Enter 鍵繼續...")
+                
         
             if msvcrt.kbhit():
                 key = msvcrt.getch().decode("utf-8", errors="ignore")

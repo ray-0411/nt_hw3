@@ -301,7 +301,7 @@ async def handle_request(req, writer):
                     "all_ready": room["all_ready"]
                 }
                 
-                print(f"✅ 房間 {rid} 狀態回應：{resp}")
+                #print(f"✅ 房間 {rid} 狀態回應：{resp}")
                 
                 
                 return resp
@@ -375,6 +375,45 @@ async def handle_request(req, writer):
                 print(f"⚠️ 標記玩家準備就緒錯誤: {e}")
                 return {"ok": False, "error": str(e)}
         
+        elif action == "start_game":
+            rid = data.get("room_id")
+            game_id = data.get("game_id")
+            game_name = data.get("game_name")
+            room = rooms.get(rid)
+
+            try:
+                if not room:
+                    return {"ok": False, "error": "Room not found."}
+
+                if room["status"] != "ready":
+                    return {"ok": False, "error": "Room is not in ready status."}
+
+                # 分配遊戲伺服器埠號
+                game_port = find_free_port()
+                game_host = get_host_ip()
+                room["port"] = game_port
+                room["status"] = "play"
+                
+                print(f"🚀 房間 {rid} 開始遊戲，分配埠號 {game_port}。")
+                
+                # 啟動遊戲伺服器子程序
+                server_py = Path("games") / f"{game_id}_{game_name}" / "game_server.py"
+                subprocess.Popen([sys.executable, str(server_py), str(game_port), str(rid)])
+                
+                data = {
+                    "room_id": rid,
+                    "game_id": room["game_id"],
+                    "host": game_host,
+                    "port": game_port,
+                    "player_num": room["player_num"],
+                    "enabled_plugins": room["enabled_plugins"]
+                }
+                
+                return {"ok": True, "data": data}
+                
+            except Exception as e:
+                print(f"⚠️ 開始遊戲錯誤: {e}")
+                return {"ok": False, "error": str(e)}
 
     # === 3️⃣ Game 相關 ===
     elif collection == "games":
@@ -382,6 +421,7 @@ async def handle_request(req, writer):
             print("✅ 取得遊戲列表請求")
             resp = await db_request(req)
             return resp
+        
         elif action == "download_game":
             
             print(f"✅ 下載遊戲資料請求：{data}")
