@@ -186,7 +186,9 @@ async def new_game(client: DevClient, USER_FOLDER: Path):
             
             await client.create_game(game_name, str(GAME_FOLDER), request.get("config"))
             
+            
             print("✅ 新建遊戲完成！請前往遊戲狀態設定處發布遊戲。")
+            await asyncio.sleep(2)
             break
         elif cmd == "0":
             # 刪除遊戲資料夾

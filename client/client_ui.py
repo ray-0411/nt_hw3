@@ -299,6 +299,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
     last_guest_state = None
     press_button = 0
     last_refresh = 0
+    respout = {}
     status = {}
     
     game_name = await client.game_id_to_name(game_id)
@@ -317,12 +318,13 @@ async def room_wait_phase(client, room_id, room_name, game_id):
         #todo
         
         """背景任務：每秒檢查房間狀態"""
-        nonlocal guest_joined, guest_name, stop_flag, status
+        nonlocal guest_joined, guest_name, stop_flag, respout
         while not stop_flag:
             try:
                 # 向伺服器查詢房間狀態
                 resp = await client._req("Room", "status", {"room_id": room_id})
-                status = resp
+                respout.clear()
+                respout.update(resp)
                 #print(f"房間狀態回應：{resp}")
                 if resp and resp.get("ok") and resp.get("guest_joined") :
                     guest_joined = resp.get("guest_joined", False)
@@ -337,6 +339,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
 
     # 啟動背景檢查任務
     listener = asyncio.create_task(check_guest_join())
+    status = respout
 
     try:
         while True:
@@ -377,16 +380,34 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                             await client.download_game(game_id, game_name)
                             print("✅ 遊戲更新完成！")
                             continue
+                        else:
+                            print("✅ 本地遊戲版本與伺服器版本相符。")
                         
-                        resp = await client._req("Game", "ready", {"room_id": room_id})
+                        resp = await client._req("Room", "ready", {"room_id": room_id})
                         
                         
                         print("⏳ 等待所有玩家準備中...")
                         while status.get("all_ready") != True:
-                            pass
+                            #print(f"status:{status}")
+                            await asyncio.sleep(1)
                         
-                        print("✅ 所有玩家已準備好，遊戲即將啟動！")
-                        input("\n🔙 按下 Enter 鍵繼續...")
+                        while True:
+                            print("✅ 所有玩家已準備好，輸入1開始遊戲！")
+                            if key == "1":
+                                break
+                            else:
+                                key = input()
+                        
+                        print("🚀 開始遊戲！")
+                        input("🔙 按下 Enter 鍵繼續...")
+                        
+                        try:
+                            resp = await client.close_room(room_id)
+                        except Exception as e:
+                            print(f"⚠️ 關閉房間時發生錯誤：{e}")
+                        stop_flag = True
+                        break
+                        
                         # if resp.get("ok"):
                         #     host = resp.get("game_host")
                         #     port = resp.get("game_port")
@@ -471,6 +492,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                     
                     stop_flag = True
                     break
+                
 
             except Exception as e:
                 print(f"⚠️ 無法檢查房間狀態：{e}")
@@ -487,21 +509,25 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
     #print(f"🎯 遊戲版本：{game_version}")
     myversion = await client.get_local_game_version(game_id)
     #print(f"🎯 本地版本：{myversion}")
+    status = "space"
+    ready_wait = False
     
     try:
         while True:
             resp = respout
             host_id = resp.get("host_id")
             guest_name = resp.get("guest_name")
+            status = resp.get("status")
 
             # 顯示一次畫面
             
-            if not stop_flag and ((time.time() - last_refresh > 10) or (resp != respl)):
+            if not stop_flag and ((time.time() - last_refresh > 10) or (resp != respl)) and status == "space":
                 clear_screen()
                 #print("resp:", resp)
-                print(f"version:{game_version} local:{myversion}")
+                
                 print(f"\n🚪 加入房間：{room_name} (ID={room_id})")
                 print("⏳ 等待房主開始遊戲...")
+                print(f"status:{status}")
                 try:
                     print("房內玩家：")
                     print(f" - 房主：{host_id}")
@@ -513,6 +539,27 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                 
                 last_refresh = time.time()
                 respl = resp
+            
+            if status == "ready" and ready_wait == False:
+                clear_screen()
+                
+                print(f"\n🚪 加入房間：{room_name} (ID={room_id})")
+                print(f"version:{game_version} local:{myversion}")
+                if game_version != myversion:
+                    print("⚠️ 本地遊戲版本與伺服器版本不符，開始自動更新遊戲！")
+                    await client.download_game(game_id, await client.game_id_to_name(game_id))
+                    print("✅ 遊戲更新完成！")
+                else:
+                    print("✅ 本地遊戲版本與伺服器版本相符。")
+                
+                print("⏳ 等待所有玩家完成準備，準備完後遊戲即將開始...")
+                ready_wait = True
+                await client.guest_ready(room_id)
+            
+            if status == "play":
+                clear_screen()
+                print("\n🚀 房主已開始遊戲！")
+                input("\n🔙 按下 Enter 鍵繼續...")
         
             if msvcrt.kbhit():
                 key = msvcrt.getch().decode("utf-8", errors="ignore")

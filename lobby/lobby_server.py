@@ -165,7 +165,8 @@ async def handle_request(req, writer):
                 "player_num": 1,
                 "enabled_plugins": ["chat"],
                 "status": "space",
-                "port": None
+                "port": None,
+                "all_ready": False
             }
 
             # ???
@@ -297,8 +298,10 @@ async def handle_request(req, writer):
                     "game_host": host,
                     "game_port": game_port,
                     "plugins": room["enabled_plugins"],
-                    "all_ready": room.get("all_ready", False)
+                    "all_ready": room["all_ready"]
                 }
+                
+                print(f"✅ 房間 {rid} 狀態回應：{resp}")
                 
                 
                 return resp
@@ -316,11 +319,12 @@ async def handle_request(req, writer):
             try:
                 if not room:
                     return {"ok": False, "error": "Room not found."}
-
-                # 找到一個空閒的 port 給遊戲伺服器使用
                 
                 room["status"] = "ready"
                 room["ready_status"] = [False] * len(room.get("guest_id", []))
+                room["all_ready"] = False
+                print(f"✅ 房主 {room['host_id']} 將房間 {rid} 設為準備狀態。")
+                print(f"room:{room}")
                 
                 return {"ok": True, "msg": "房間已設為準備狀態。"}
                 
@@ -349,6 +353,28 @@ async def handle_request(req, writer):
 
             return {"ok": False, "error": "你不在該房間中。"}
             
+        elif action == "guest_ready":
+            rid = data.get("room_id")
+            uid = data.get("user_id")
+
+            room = rooms.get(rid)
+            if not room:
+                return {"ok": False, "error": "房間不存在。"}
+
+            try:
+                guest_ids = room.get("guest_id") or []
+                if uid in guest_ids:
+                    index = guest_ids.index(uid)
+                    room["ready_status"][index] = True
+                    print(f"✅ 玩家 {uid} 在房間 {rid} 標記為準備就緒。")
+                    print(f"room:{room}")
+                    return {"ok": True, "msg": "你已標記為準備就緒。"}
+                else:
+                    return {"ok": False, "error": "你不在該房間中。"}
+            except Exception as e:
+                print(f"⚠️ 標記玩家準備就緒錯誤: {e}")
+                return {"ok": False, "error": str(e)}
+        
 
     # === 3️⃣ Game 相關 ===
     elif collection == "games":

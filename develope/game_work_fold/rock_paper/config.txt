@@ -1,0 +1,17 @@
+# change * place
+name = Rock Paper Scissors
+
+# only x.x is avaliable
+version = 1.0
+
+# game type : cli/gui/multi
+game_type = cli
+
+max_players = 2
+
+# how to start your game
+entry_server = python -m game.game_server {port} {room_id}
+entry_client = python -m game.game_client {host} {port} {user_id}
+
+# describe your game
+description = A simple CLI rock-paper-scissors game for two players.

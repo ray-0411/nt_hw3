@@ -232,4 +232,16 @@ class LobbyClient:
             print(f"❌ 轉換遊戲 ID 為名稱失敗：{e}")
             return {"ok": False, "error": str(e)}
         
+    async def guest_ready(self, room_id):
+        
+        """通知 Lobby 自己準備好了"""
+        if not self.user_id:
+            return {"ok": False, "error": "請先登入"}
+
+        data = {
+            "room_id": room_id,
+            "user_id": self.user_id
+        }
+        
+        return await self._req("Room", "guest_ready", data)
     
