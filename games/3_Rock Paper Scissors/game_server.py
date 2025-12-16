@@ -43,16 +43,17 @@ def most_common_type(c1, c2):
 # Thread：收單一玩家輸入
 # -------------------------
 def get_choice(conn, player_idx, hands, choices):
-    """
-    每個玩家一個 thread
-    只負責把合法出牌寫進 choices[player_idx]
-    """
     try:
         while True:
             send_line(conn, f"Remaining cards: {hands[player_idx]}")
             send_line(conn, "Choose a card (0/1/2):")
 
-            c = int(recv_line(conn))
+            try:
+                c = int(recv_line(conn))
+            except ValueError:
+                send_line(conn, "❌ 請輸入 0 / 1 / 2")
+                continue
+
             if c in hands[player_idx]:
                 hands[player_idx].remove(c)
                 choices[player_idx] = c
@@ -62,8 +63,6 @@ def get_choice(conn, player_idx, hands, choices):
 
     except ConnectionError:
         choices[player_idx] = "DISCONNECT"
-    except Exception:
-        send_line(conn, "❌ 請輸入 0 / 1 / 2")
 
 
 # -------------------------
@@ -101,8 +100,8 @@ def main(port):
 
     # === 發牌 ===
     hands = {
-        0: [random.randint(0, 2) for _ in range(3)],
-        1: [random.randint(0, 2) for _ in range(3)],
+        0: [random.randint(0, 2) for _ in range(5)],
+        1: [random.randint(0, 2) for _ in range(5)],
     }
 
     for i, conn in enumerate(players):
@@ -114,9 +113,9 @@ def main(port):
 
     score = [0, 0]
 
-    # === 三輪對戰（真正同步）===
+    # === 五輪對戰（真正同步）===
     try:
-        for rnd in range(3):
+        for rnd in range(5):
             for conn in players:
                 send_line(conn, f"\n=== Round {rnd+1} ===")
                 send_line(conn, "請出牌，輸入後等待對方")

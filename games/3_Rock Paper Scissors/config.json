@@ -1,6 +1,6 @@
 {
     "name": "Rock Paper Scissors",
-    "version": "1.1",
+    "version": "1.2",
     "game_type": "cli",
     "max_players": "2",
     "entry_server": "python -m game.game_server {port} {room_id}",

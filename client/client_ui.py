@@ -399,6 +399,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                             else:
                                 key = input()
                         
+                        clear_screen()
                         print("🚀 開始遊戲！")
                         
                         data = {
@@ -411,7 +412,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         host = status.get("game_host")
                         port = status.get("game_port")
                         
-                        clear_screen()
+                        
                         print(f"🎮 連線到遊戲伺服器 {host}:{port} ...")
                         
                         client_path = Path("client") / f"user_{client.user_id}_{client.username}" / f"{game_id}_{game_name}" / "game_client.py"
@@ -583,7 +584,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                 break
     
     finally:
-        await asyncio.sleep(3)
+        await asyncio.sleep(1)
         stop_flag = True
         listener.cancel()
         
