@@ -96,7 +96,6 @@ async def first_phase(client: DevClient):
             await new_game(client, USER_FOLDER)
         elif cmd == "2":
             await update_game(client, USER_FOLDER)
-            time.sleep(1.5)
         elif cmd == "3":
             await change_game_status(client)
         elif cmd == "4":
@@ -300,6 +299,7 @@ async def update_game(client: DevClient, USER_FOLDER: Path):
             await client.update_game(str(GAME_FOLDER), request.get("config") ,game_id)
             
             print("✅ 更新遊戲完成！")
+            await asyncio.sleep(2)
             break
         elif cmd == "0":
             print("✅ 已取消更新遊戲。")

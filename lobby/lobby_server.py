@@ -283,6 +283,14 @@ async def handle_request(req, writer):
                 guest_ids = room.get("guest_id") or []
                 guest_names = []
                 invalid_uids = []
+                
+                host_id = room.get("host_id")
+                if host_id not in online_users:
+                    for uid in guest_ids:
+                        if uid in online_users:
+                            online_users[uid]["room_id"] = None
+                    rooms.pop(rid)
+                    return {"ok": False, "error": "Host user is offline."}
 
                 for uid in guest_ids:
                     if uid in online_users:

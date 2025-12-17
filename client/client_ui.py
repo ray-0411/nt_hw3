@@ -271,7 +271,7 @@ async def lobby_phase(client: LobbyClient):
                 #time.sleep(1)
                 # 這裡可選擇進入房內等待畫面
                 game_id = target_room["game_id"]
-                await asyncio.sleep(2) 
+                await asyncio.sleep(1) 
                 await guest_wait_phase(client, rid, target_room["name"], game_id)
             else:
                 print(f"❌ 加入失敗：{resp.get('error', '未知錯誤')}")
@@ -532,6 +532,7 @@ async def guest_wait_phase(client, room_id, room_name, game_id):
                     
                     stop_flag = True
                     break
+                
                 
 
             except Exception as e:

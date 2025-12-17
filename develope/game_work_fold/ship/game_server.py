@@ -23,8 +23,8 @@ class BattleshipServer:
     def handle_client(self, client_socket, player_id):
         client_socket.send(f"ID:{player_id}|".encode('utf-8'))
         
-        while True:
-            try:
+        try:
+            while True:
                 data = client_socket.recv(1024).decode('utf-8')
                 if not data: break
                 
@@ -36,18 +36,24 @@ class BattleshipServer:
                         if len(self.ready_players) == 2:
                             self.broadcast("START")
                     elif cmd == "NOT_READY":
-                        # 當玩家重製時，從就緒名單移除
                         if player_id in self.ready_players:
                             self.ready_players.remove(player_id)
-                        print(f"玩家 {player_id} 取消就緒 (重製中)")
-                        
                     else:
-                        # 轉發所有攻擊 (ATTACK) 與 結果 (RESULT) 指令
                         self.broadcast(cmd)
-            except: break
-        
-        if player_id in self.clients: del self.clients[player_id]
-        client_socket.close()
+        except Exception as e:
+            print(f"玩家 {player_id} 發生異常: {e}")
+        finally:
+            # --- 斷線後的處理邏輯 ---
+            if player_id in self.clients:
+                del self.clients[player_id]
+            if player_id in self.ready_players:
+                self.ready_players.remove(player_id)
+            
+            # 通知剩下的玩家有人離開了
+            self.broadcast(f"OPPONENT_DISCONNECTED|PLAYER:{player_id}")
+            
+            client_socket.close()
+            print(f"玩家 {player_id} 已斷開連線。")
 
     def run(self):
         while True:
