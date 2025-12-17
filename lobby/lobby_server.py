@@ -184,8 +184,14 @@ async def handle_request(req, writer):
                 #print(f"online_users:{online_users}")
                 
                 for rid, r in rooms.items():
-                    #if only_available == r["status"]:
-                    if online_users[r["host_id"]]["room_id"] == rid:
+                    #if only_available == r["status"]:.
+                    host_id = r["host_id"]
+                    
+                    if host_id not in online_users:
+                        print(f"⚠️ 房間 {rid} 的房主 {host_id} 已斷線，跳過。")
+                        continue
+                    
+                    if online_users[host_id].get("room_id") == rid and r["status"] == "space":
                         result.append({
                             "id": rid,
                             "name": r["name"],
@@ -207,7 +213,10 @@ async def handle_request(req, writer):
 
             except Exception as e:
                 #***
-                #print(f"⚠️ 列出房間錯誤: {e}")
+                print(f"⚠️ 列出房間錯誤: {e}")
+                print(f"rooms:{rooms}")
+                print("\n")
+                print(f"online_users:{online_users}")
                 
                 return {"ok": False, "error": str(e)}
             
