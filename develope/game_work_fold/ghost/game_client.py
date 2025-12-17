@@ -3,194 +3,181 @@ import threading
 import tkinter as tk
 from tkinter import messagebox
 import sys
+import time
+from collections import Counter
 
-class BattleshipClient:
-    def __init__(self, host, port):
+class OldMaidClient:
+    def __init__(self, host, port, user_id):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((host, int(port)))
         except:
-            print("連線失敗，請檢查 Server 是否已啟動")
+            print("無法連線至伺服器")
             return
 
-        self.player_id = None
-        self.ships_to_place = [3, 2, 1, 1] 
-        self.current_ship_idx = 0
-        
-        self.my_ships_list = []    # 存每艘船的座標 [[(r,c),(r,c)], ...]
-        self.my_hits_on_me = set() # 我方被擊中的座標
-        self.forbidden_zones = set() # 9格規則禁區
-        self.temp_ship = []        # 當前正在放置的船隻暫存
-        
-        self.total_ship_cells = sum(self.ships_to_place)
-        self.my_hits = 0      # 我打中對方的次數
-        self.enemy_hits = 0   # 對方打中我的次數
+        self.user_id = user_id
+        self.p_id = None
+        self.my_cards = []
+        self.players_info = {} # {p_id: card_count}
         self.is_my_turn = False
-        self.phase = "WAITING_FOR_ID"
-
+        self.target_id = None
+        self.is_game_over = False
+        
         self.root = tk.Tk()
-        self.setup_gui()
-        threading.Thread(target=self.receive_messages, daemon=True).start()
+        self.setup_ui()
+        
+        threading.Thread(target=self.receive, daemon=True).start()
         self.root.mainloop()
 
-    def setup_gui(self):
-        self.root.title("海戰棋 5x5 - 網路整合版")
-        self.info_label = tk.Label(self.root, text="連線中...", font=('Arial', 10, 'bold'), fg="blue")
-        self.info_label.pack(pady=5)
+    def setup_ui(self):
+        self.root.title(f"抽鬼牌 - {self.user_id}")
+        self.root.geometry("850x500") # 寬一點避免卡片擠住
 
-        # 重製工具列
-        tool_frame = tk.Frame(self.root)
-        tool_frame.pack()
-        self.reset_btn = tk.Button(tool_frame, text="重新佈署棋盤", command=self.manual_reset, bg="#f0f0f0")
-        self.reset_btn.pack(side="left", padx=5, pady=2)
-
-        container = tk.Frame(self.root)
-        container.pack(padx=10, pady=5)
-
-        # 棋盤初始化
-        self.my_btns = self.create_grid(tk.LabelFrame(container, text="我的海域 (配置中)"), self.on_my_click)
-        self.my_btns[0][0].master.grid(row=0, column=0, padx=10)
-
-        self.enemy_btns = self.create_grid(tk.LabelFrame(container, text="敵方海域 (戰鬥區)"), self.on_enemy_click)
-        self.enemy_btns[0][0].master.grid(row=0, column=1, padx=10)
-
-    def create_grid(self, frame, callback):
-        btns = []
-        for r in range(5):
-            row = []
-            for c in range(5):
-                btn = tk.Button(frame, width=4, height=2, bg="lightblue", command=lambda r=r, c=c: callback(r, c))
-                btn.grid(row=r, column=c)
-                row.append(btn)
-            btns.append(row)
-        return btns
-
-    def manual_reset(self):
-        """手動重製功能"""
-        if self.phase in ["PLACEMENT", "READY_SENT"]:
-            self.reset_logic()
-            self.info_label.config(text=f"手動重製完成，請放置 {self.ships_to_place[0]} 格艦", fg="blue")
-
-    def reset_logic(self):
-        """清空所有佈署狀態與顏色"""
-        self.my_ships_list = []
-        self.my_hits_on_me = set()
-        self.forbidden_zones = set()
-        self.temp_ship = []
-        self.current_ship_idx = 0
-        self.phase = "PLACEMENT"
+        self.info = tk.Label(self.root, text="等待其他玩家加入...", font=('Arial', 12, 'bold'), fg="blue")
+        self.info.pack(pady=20)
         
-        # 關鍵修正：告訴伺服器我現在還沒準備好，請重新計算
-        try:
-            self.socket.send("NOT_READY|".encode('utf-8'))
-        except:
-            pass
+        # 對手區域
+        self.opponents_frame = tk.Frame(self.root)
+        self.opponents_frame.pack(pady=20)
         
-        for r in range(5):
-            for c in range(5):
-                self.my_btns[r][c].config(bg="lightblue", text="")
-
-    def on_my_click(self, r, c):
-        if self.phase != "PLACEMENT": return
+        # 自己手牌區域
+        self.my_frame = tk.LabelFrame(self.root, text="我的手牌 (My Hand)", font=('Arial', 10, 'bold'))
+        self.my_frame.pack(pady=20, fill="x", padx=40)
         
-        # 取得所有已放船格
-        all_placed = [cell for ship in self.my_ships_list for cell in ship]
-        if (r, c) in all_placed or (r, c) in self.forbidden_zones or (r, c) in self.temp_ship:
-            return
+        # 關鍵修正：補上這個容器，否則 update_cards_display 會報錯卡住
+        self.cards_container = tk.Frame(self.my_frame)
+        self.cards_container.pack(pady=10)
+        self.card_labels = []
 
-        target_len = self.ships_to_place[self.current_ship_idx]
-
-        # --- 核心邏輯：三級艦與二級艦的直線與相鄰判定 (保留雙向放置) ---
-        if len(self.temp_ship) > 0:
-            # 必須與當前暫存船隻中的「任何一格」相鄰
-            is_adj = any(abs(sr - r) + abs(sc - c) == 1 for sr, sc in self.temp_ship)
-            if not is_adj: return 
+    def update_cards_display(self, highlight_idx=-1):
+        """更新手牌顯示，不排序。每 10 張牌自動換行"""
+        # 1. 清除 cards_container 內的所有舊橫列與標籤
+        for widget in self.cards_container.winfo_children():
+            widget.destroy()
+        self.card_labels = []
+        
+        current_row_frame = None
+        
+        # 2. 遍歷手牌
+        for i, c in enumerate(self.my_cards):
+            # 每 10 張牌建立一個新的橫列 Frame (i=0, 10, 20...)
+            if i % 10 == 0:
+                current_row_frame = tk.Frame(self.cards_container)
+                current_row_frame.pack(side="top", pady=5) # pady 增加行距
             
-            # 直線判定 (當放第三格時)
-            if len(self.temp_ship) == 2:
-                r0, c0 = self.temp_ship[0]
-                r1, c1 = self.temp_ship[1]
-                # 第三格必須與前兩格在同一 row 或同一 col
-                if not ((r0 == r1 == r) or (c0 == c1 == c)):
-                    return
-
-        self.temp_ship.append((r, c))
-        self.my_btns[r][c].config(bg="darkblue")
-
-        # 船隻放置完成
-        if len(self.temp_ship) == target_len:
-            self.my_ships_list.append(list(self.temp_ship))
-            # 計算 9 格禁區
-            for (sr, sc) in self.temp_ship:
-                for dr in [-1, 0, 1]:
-                    for dc in [-1, 0, 1]:
-                        nr, nc = sr + dr, sc + dc
-                        if 0 <= nr < 5 and 0 <= nc < 5:
-                            curr_all = [cell for ship in self.my_ships_list for cell in ship]
-                            if (nr, nc) not in curr_all:
-                                self.forbidden_zones.add((nr, nc))
-                                self.my_btns[nr][nc].config(bg="#FFCCCC") # 淡紅色禁區
-
-            self.temp_ship = []
-            self.current_ship_idx += 1
+            # 設定顏色：JK 為淡粉紅，一般牌為白色
+            bg_color = "#FFEBEE" if c == "JK" else "white"
+            fg_color = "red" if c == "JK" else "black"
             
-            # --- 關鍵修復：在此判斷下一艘船是否還有空間 ---
-            if self.current_ship_idx < len(self.ships_to_place):
-                if self.is_deadlock():
-                    messagebox.showwarning("提示", "空間不足以放置剩餘船隻，棋盤將自動重製。")
-                    self.reset_logic()
-                else:
-                    self.info_label.config(text=f"請放置 {self.ships_to_place[self.current_ship_idx]} 格艦")
+            # 如果是新抽到的牌，標註為亮橘色背景
+            if i == highlight_idx:
+                bg_color = "#FCE8CB" 
+            
+            # 建立卡片標籤並放入目前的橫列 Frame 中
+            lbl = tk.Label(current_row_frame, text=c, width=6, height=4, relief="raised", 
+                           bg=bg_color, fg=fg_color, font=('Arial', 11, 'bold'), bd=2)
+            lbl.pack(side="left", padx=4) # padx 稍微縮小一點點，確保 10 張放得下
+            self.card_labels.append(lbl)
+
+    def visual_match_and_remove(self, is_initial=False):
+        """精確配對 2 張相同牌並上色移除"""
+        def process():
+            if is_initial:
+                for i in range(5, 0, -1):
+                    self.info.config(text=f"遊戲即將開始，請觀察手牌...({i}s)", fg="blue")
+                    time.sleep(1)
             else:
-                self.phase = "READY_SENT"
-                self.info_label.config(text="佈署完成，等待對方就緒...", fg="orange")
-                self.socket.send("READY|".encode('utf-8'))
+                self.info.config(text="抽到牌了！觀察中...", fg="orange")
+                time.sleep(2)
 
-    def is_deadlock(self):
-        """檢查地圖上是否還有足夠的連續空間可以放下下一艘船"""
-        # 取得下一艘船需要的長度
-        target_len = self.ships_to_place[self.current_ship_idx]
+            # --- 關鍵修正：精確找出「成對」的索引 ---
+            found_pair_indices = []  # 存要上色的 Label 索引
+            cards_to_remove_indices = [] # 存要移除的牌索引
+            
+            temp_cards = list(self.my_cards)
+            already_matched = set()
+
+            # 找出所有成對的組合（不包含鬼牌）
+            for i in range(len(temp_cards)):
+                if i in already_matched or temp_cards[i] == "JK":
+                    continue
+                for j in range(i + 1, len(temp_cards)):
+                    if j in already_matched:
+                        continue
+                    if temp_cards[i] == temp_cards[j]:
+                        # 找到一對！
+                        already_matched.add(i)
+                        already_matched.add(j)
+                        found_pair_indices.append((i, j, temp_cards[i]))
+                        break
+
+            if found_pair_indices:
+                # 定義顏色池
+                color_pool = [
+                    "#FCE8CB", # 杏桃粉 (Apricot)
+                    "#FCF8D6", # 檸檬黃 (Lemon)
+                    "#DBF6DE", # 薄荷綠 (Mint)
+                    "#D9FAF7", # 天空藍 (Sky)
+                    "#F6E4F9", # 薰衣草紫 (Lavender)
+                    "#FCD6E3", # 櫻花粉 (Rose)
+                    "#E3EFCC",  # 抹茶綠 (Tea Green)
+                    "#BDF0F4" # 水晶藍 (Cyan)
+                ]
+                
+                # 幫 Label 上色 (只針對那一對的兩個索引)
+                for idx, (i, j, card_val) in enumerate(found_pair_indices):
+                    color = color_pool[idx % len(color_pool)]
+                    self.card_labels[i].config(bg=color)
+                    self.card_labels[j].config(bg=color)
+                
+                self.info.config(text="發現配對！準備丟棄成對卡片...", fg="red")
+                time.sleep(2) 
+
+            # --- 執行移除：只移除已經被 match 的牌 ---
+            self.my_cards = [self.my_cards[k] for k in range(len(self.my_cards)) if k not in already_matched]
+            
+            # 更新顯示並重設 Highlight
+            self.root.after(0, lambda: self.update_cards_display(highlight_idx=-1))
+            self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode())
+            
+            if is_initial:
+                #time.sleep(0.5)
+                # 這裡主動觸發一次 UI 更新，確保文字不會停在「遊戲即將開始」
+                self.root.after(0, self.final_ui_refresh)
+            else:
+                # 如果是抽牌回合，結束後通知 Server 換下一個人
+                time.sleep(1)
+                self.socket.send(f"DRAW_DONE:{self.p_id}|".encode())
+
+        threading.Thread(target=process, daemon=True).start()
+    
+    def final_ui_refresh(self):
+        """專門用於初始丟牌後的文字恢復"""
+        if self.is_game_over: return
+        # 根據目前的轉場狀態恢復文字
+        if self.target_id:
+            curr_picker = "自己" if self.is_my_turn else f"玩家 {self.target_id - 1 if self.target_id > 1 else 'N'}" # 簡化邏輯
+            # 最保險的做法是直接根據 handle_cmd 存下的狀態重刷
+            if self.is_my_turn:
+                self.info.config(text=f"準備就緒！請抽 玩家 {self.target_id} 的牌", fg="green")
+            else:
+                self.info.config(text=f"準備就緒！等待對方抽牌...", fg="black")
         
-        # 取得所有已被佔用的格子（已放船的格 + 淡紅色禁區）
-        all_taken = set()
-        for ship in self.my_ships_list:
-            for cell in ship:
-                all_taken.add(cell)
-        all_taken.update(self.forbidden_zones)
 
-        # 遍歷棋盤每一個點作為起點
-        for r in range(5):
-            for c in range(5):
-                if (r, c) not in all_taken:
-                    # 如果下一艘船只要 1 格，只要找到一個空格就沒死路
-                    if target_len == 1:
-                        return False
-                    
-                    # 檢查兩個方向：水平 (右) 與 垂直 (下)
-                    for dr, dc in [(0, 1), (1, 0)]:
-                        can_fit = True
-                        for i in range(target_len):
-                            nr, nc = r + dr*i, c + dc*i
-                            # 如果超出邊界或是該格已被佔用，則此方向不行
-                            if not (0 <= nr < 5 and 0 <= nc < 5 and (nr, nc) not in all_taken):
-                                can_fit = False
-                                break
-                        
-                        # 如果有一個方向放得下，就代表還沒死路
-                        if can_fit:
-                            return False
-                            
-        # 找遍全地圖都沒有任何一個方向能放下連續的 target_len 格，回傳 True (死路)
-        return True
+    def draw_card(self, from_id, idx):
+        """點擊對手牌堆的動作"""
+        # 增加一個判斷，確保在「正在抽牌」或「等待動畫」期間不能重複點擊
+        if self.is_my_turn and from_id == self.target_id:
+            # 關鍵修正：立即鎖定回合狀態，防止連續點擊
+            self.is_my_turn = False 
+            
+            # 立即更新 UI 禁用所有按鈕
+            self.refresh_opponents()
+            
+            self.info.config(text="正在抽牌並等待回應...", fg="orange")
+            self.socket.send(f"DRAW_REQ:{self.p_id},{from_id},{idx}|".encode())
 
-    def on_enemy_click(self, r, c):
-        if self.phase == "BATTLE" and self.is_my_turn:
-            if self.enemy_btns[r][c]["text"] == "":
-                self.is_my_turn = False
-                self.info_label.config(text="通訊中...", fg="grey")
-                self.socket.send(f"ATTACK:{self.player_id},{r},{c}|".encode('utf-8'))
-
-    def receive_messages(self):
+    def receive(self):
         while True:
             try:
                 data = self.socket.recv(1024).decode('utf-8')
@@ -200,87 +187,98 @@ class BattleshipClient:
             except: break
 
     def handle_cmd(self, cmd):
-        if cmd.startswith("ID:"):
-            self.player_id = int(cmd.split(":")[1])
-            self.root.title(f"玩家 {self.player_id}")
-            self.phase = "PLACEMENT"
-            self.info_label.config(text=f"請放置 {self.ships_to_place[0]} 格艦")
-        elif cmd == "START":
-            self.phase = "BATTLE"
-            self.is_my_turn = (self.player_id == 1)
-            self.update_turn_ui()
-        elif cmd.startswith("ATTACK:"):
-            p = cmd.split(":")[1].split(",")
-            if int(p[0]) != self.player_id: self.handle_defense(int(p[1]), int(p[2]))
-        elif cmd.startswith("RESULT:"):
-            p = cmd.split(":")[1].split(",")
-            if int(p[0]) != self.player_id: self.handle_result(int(p[1]), int(p[2]), p[3], p[4:])
-
-    def handle_defense(self, r, c):
-        hit = False
-        target_ship = None
-        # 尋找被打中的是哪一艘船
-        for ship in self.my_ships_list:
-            if (r, c) in ship:
-                hit = True
-                target_ship = ship
-                break
+        parts = cmd.split(':')
+        tag = parts[0]
         
-        res = "MISS"
-        sunk_data = ""
-        if hit:
-            res = "HIT"
-            self.my_hits_on_me.add((r, c))
-            # 檢查整艘船是否都已擊中
-            if all(cell in self.my_hits_on_me for cell in target_ship):
-                res = "SUNK"
-                sunk_data = ",".join([f"{cell[0]} {cell[1]}" for cell in target_ship])
-                # 這裡修正：立即將整艘船（含最後一格）塗成深灰色
-                for sr, sc in target_ship:
-                    self.my_btns[sr][sc].config(bg="#444444", text="X")
-            else:
-                # 尚未全沉，只把當前格變紅
-                self.my_btns[r][c].config(bg="red", text="X")
-        else:
-            # 沒打中
-            self.my_btns[r][c].config(bg="white", text="O")
+        if tag == "ID":
+            self.p_id = int(parts[1])
+            self.root.title(f"玩家 {self.p_id} ({self.user_id})")
+            
+        elif tag == "CARDS":
+            self.my_cards = parts[1].split(',')
+            self.update_cards_display()
+            self.visual_match_and_remove(is_initial=True)
+            
+        elif tag == "TURN":
+            if self.is_game_over: return
+            curr, target = map(int, parts[1].split(','))
+            self.is_my_turn = (curr == self.p_id)
+            self.target_id = target
+            
+            if target == self.p_id:
+                import random
+                random.shuffle(self.my_cards)
+                # 立即刷新，讓自己看到洗牌後的新位置
+                self.update_cards_display()
+                # 同時也要發送一次 COUNT，確保 Server 記錄的牌數與索引同步（雖然張數沒變，但這是保險）
+                self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode('utf-8'))
+            
+            self.info.config(text=f"輪到 玩家 {curr} 抽 玩家 {target}", 
+                             fg="green" if self.is_my_turn else "black")
+            self.refresh_opponents()
+            
+        elif tag == "DRAW_REQ":
+            p_idx, from_id, c_idx = map(int, parts[1].split(','))
+            if from_id == self.p_id:
+                # 關鍵修正：有人要抽我的牌前，先打亂手牌順序
+                # import random
+                # random.shuffle(self.my_cards)
+                
+                # # 更新顯示（已打亂）
+                # self.update_cards_display()
+                
+                # 抽出一張牌 (確保索引不超出範圍)
+                safe_idx = c_idx if c_idx < len(self.my_cards) else 0
+                card = self.my_cards.pop(safe_idx)
+                
+                self.socket.send(f"DRAW_VAL:{p_idx},{card}|".encode('utf-8'))
+                self.update_cards_display() # 更新顯示（已打亂且少一張）
+                self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode('utf-8'))
+                
+        elif tag == "DRAW_VAL":
+            p_idx, card = int(parts[1].split(',')[0]), parts[1].split(',')[1]
+            if p_idx == self.p_id:
+                # 抽到牌加入手牌末尾
+                self.my_cards.append(card)
+                new_idx = len(self.my_cards) - 1
+                # 關鍵修正：傳入新牌的索引位置進行標色
+                self.update_cards_display(highlight_idx=new_idx)
+                self.visual_match_and_remove(is_initial=False)
         
-        # 回傳結果給所有人
-        self.socket.send(f"RESULT:{self.player_id},{r},{c},{res},{sunk_data}|".encode('utf-8'))
-        
-        # 判斷勝負
-        if len(self.my_hits_on_me) == self.total_ship_cells:
-            self.phase = "GAME_OVER"
-            self.info_label.config(text="【 遊戲結束：你輸了！ 】", fg="red", font=('Arial', 14, 'bold'))
-        else:
-            self.is_my_turn = True
-            self.update_turn_ui()
+        elif tag == "COUNT":
+            pid, cnt = map(int, parts[1].split(','))
+            self.players_info[pid] = cnt
+            self.refresh_opponents()
+            
+        elif tag == "INFO":
+            self.info.config(text=parts[1])
+            
+        elif tag == "OVER":
+            self.is_game_over = True
+            self.info.config(text=f"【 遊戲結束 】\n{parts[1]}", fg="red", font=('Arial', 14, 'bold'))
 
-    def handle_result(self, r, c, res, sunk_coords):
-        if res == "MISS":
-            self.enemy_btns[r][c].config(bg="white", text="O")
-        else:
-            self.enemy_btns[r][c].config(bg="red", text="X")
-            self.my_hits += 1
-            if res == "SUNK":
-                for coord in sunk_coords:
-                    if coord:
-                        sr, sc = map(int, coord.split())
-                        self.enemy_btns[sr][sc].config(bg="#444444")
-                messagebox.showinfo("好球", "擊沉敵方船隻！")
+    def refresh_opponents(self):
+        """重新繪製對手的卡牌按鈕"""
+        for widget in self.opponents_frame.winfo_children(): widget.destroy()
+        for pid, cnt in sorted(self.players_info.items()):
+            if pid == self.p_id: continue
+            
+            frame = tk.LabelFrame(self.opponents_frame, text=f"玩家 {pid} ({cnt}張)")
+            frame.pack(side="left", padx=15)
+            
+            if cnt == 0:
+                tk.Label(frame, text="已脫手", fg="gray").pack()
+                continue
 
-        if self.my_hits == self.total_ship_cells:
-            self.phase = "GAME_OVER"
-            self.info_label.config(text="【 恭喜：你贏了！ 】", fg="#006400", font=('Arial', 14, 'bold'))
-        else:
-            self.is_my_turn = False
-            self.update_turn_ui()
-
-    def update_turn_ui(self):
-        t = "你的回合！" if self.is_my_turn else "對方回合..."
-        self.info_label.config(text=t, fg="green" if self.is_my_turn else "red")
+            for i in range(cnt):
+                # 只有輪到我且對象正確時，按鈕才啟用
+                state = "normal" if (self.is_my_turn and pid == self.target_id) else "disabled"
+                tk.Button(frame, text="?", width=3, state=state,
+                          command=lambda p=pid, idx=i: self.draw_card(p, idx)).pack(side="left", padx=1)
 
 if __name__ == "__main__":
-    h = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
-    p = sys.argv[2] if len(sys.argv) > 2 else 5555
-    BattleshipClient(h, p)
+    # 啟動方式: python game_client.py {host} {port} {user_id}
+    if len(sys.argv) >= 4:
+        OldMaidClient(sys.argv[1], sys.argv[2], sys.argv[3])
+    else:
+        print("參數不足。用法: python game_client.py 127.0.0.1 5555 PlayerName")
