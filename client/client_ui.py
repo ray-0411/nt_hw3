@@ -392,7 +392,7 @@ async def room_wait_phase(client, room_id, room_name, game_id):
                         }
                         max_player = await client.max_player(game_info)
                         
-                        if len(guest_name) + 1 > max_player:
+                        if len(guest_name) + 1 != max_player:
                             print(f"❌ 房間人數已超過遊戲最大人數 ({max_player})，無法開始遊戲！")
                             press_button = 2
                             await asyncio.sleep(1)

@@ -1,0 +1,20 @@
+#change * place
+name = 多人抽鬼牌 (Old Maid Multiplayer)
+
+#only x.x is avaliable
+version = 1.0
+
+#game type : cli/gui/multi
+# 由於你有 GUI 且支援 3 人以上，這裡設定為 multi
+game_type = multi
+
+# 依據你的作業要求與程式邏輯，設定為 3 (或 4，如果你的 Server 邏輯有支援到 4 人)
+max_players = 3
+
+# how to start your game
+# don't change this
+entry_server = python games/game_server.py {port} 
+entry_client = python games/game_client.py {host} {port} {user_id}
+
+# discribe your game
+description = 一款支援 3 人以上的 GUI 抽鬼牌遊戲。包含開場 5 秒觀察時間、自動去對、低彩度配色視覺化，以及同步洗牌機制。玩家需輪流從對手手中抽牌，最先清空手牌者獲勝。
