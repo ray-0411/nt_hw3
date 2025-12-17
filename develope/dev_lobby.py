@@ -31,7 +31,7 @@ def get_host_ip():
     return ip
 
 LOBBY_HOST = get_host_ip()     # Lobby Server 對外開放 IP
-LOBBY_PORT = 18110           # Lobby Server 監聽埠
+LOBBY_PORT = 18110           # Dev Server 監聽埠
 db_reader = None
 db_writer = None
 
@@ -264,14 +264,14 @@ async def main():
     # Lobby 初始化
     resp = await db_request({"collection": "Lobby", "action": "dev_init"})
     if resp.get("ok"):
-        print("🧹 Lobby 初始化：所有使用者狀態已重設。")
+        print("🧹 Dev 初始化：所有使用者狀態已重設。")
     else:
         print(f"⚠️ Lobby 初始化失敗：{resp.get('error')}")
 
     # 啟動 Lobby Server
     server = await asyncio.start_server(handle_client, LOBBY_HOST, LOBBY_PORT)
     addr = server.sockets[0].getsockname()
-    print(f"✅ Lobby Server 啟動於 {addr}")
+    print(f"✅ Dev Server 啟動於 {addr}")
 
     try:
         async with server:

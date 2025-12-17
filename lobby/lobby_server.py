@@ -81,11 +81,17 @@ invite_counter = 0
     
 def find_free_port(start=16800, end=16900):
     import socket
-    for port in range(start, end):
+    import random
+    
+    # 隨機產生一個起點
+    search_range = list(range(start, end))
+    random.shuffle(search_range) 
+    
+    for port in search_range:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.bind((LOBBY_HOST, port))
-                s.listen(1)  # 確保真的能 listen
+                # 建議 bind 到 "0.0.0.0" 或 "" 確保測試最精確
+                s.bind(('', port))
                 return port
             except OSError:
                 continue

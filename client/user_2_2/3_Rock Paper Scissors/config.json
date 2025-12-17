@@ -1,9 +1,9 @@
 {
     "name": "Rock Paper Scissors",
-    "version": "1.2",
+    "version": "1.3",
     "game_type": "cli",
     "max_players": "2",
     "entry_server": "python -m game.game_server {port} {room_id}",
     "entry_client": "python -m game.game_client {host} {port} {user_id}",
-    "description": "A simple CLI rock-paper-scissors game for two players."
+    "description": "五輪猜拳遊戲"
 }

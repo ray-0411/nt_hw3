@@ -1,0 +1,11 @@
+db_server
+cd class/ntc/nt_hw3
+python -m database.db_server
+
+dev_server:
+cd class/ntc/nt_hw3
+python -m develope.dev_lobby
+
+lobby server:
+cd class/ntc/nt_hw3
+python -m lobby.lobby_server
