@@ -14,13 +14,19 @@ class OldMaidServer:
         self.player_hands_count = {} # {p_id: count}
         self.turn_order = []
         self.current_picker_idx = 0
+        self.running = True
         print(f"多人抽鬼牌 Server 啟動於 {port}，滿 3 人即自動開始...")
 
     def broadcast(self, msg):
         full_msg = (msg.strip('|') + "|").encode('utf-8')
-        for sock in self.clients.values():
-            try: sock.send(full_msg)
-            except: pass
+        # 使用 list(self.clients.items()) 以免在迴圈中刪除字典成員報錯
+        for p_id, sock in list(self.clients.items()):
+            try:
+                sock.send(full_msg)
+            except:
+                # 如果發送失敗，代表這個玩家也斷線了，直接移除
+                if p_id in self.clients:
+                    del self.clients[p_id]
 
     def start_game(self):
         print("人數已滿，正在發牌...")
@@ -66,40 +72,68 @@ class OldMaidServer:
 
     def handle_client(self, conn, p_id):
         conn.send(f"ID:{p_id}|".encode('utf-8'))
-        while True:
-            try:
-                data = conn.recv(1024).decode('utf-8')
-                if not data: break
-                for cmd in data.split('|'):
-                    if not cmd: continue
-                    
-                    if cmd.startswith("COUNT:"):
-                        _, val = cmd.split(':')
-                        pid, count = map(int, val.split(','))
-                        self.player_hands_count[pid] = count
-                        self.broadcast(cmd)
+        try:
+            while True:
+                try:
+                    data = conn.recv(1024).decode('utf-8')
+                    if not data: break
+                    for cmd in data.split('|'):
+                        if not cmd: continue
                         
-                    elif cmd.startswith("DRAW_DONE:"):
-                        # 抽牌動作完成，換下一位
-                        time.sleep(1.5) # 抽完後停頓一下才換人
-                        self.next_turn()
-                        
-                    else:
-                        self.broadcast(cmd)
-            except: break
-        del self.clients[p_id]
+                        if cmd.startswith("COUNT:"):
+                            _, val = cmd.split(':')
+                            pid, count = map(int, val.split(','))
+                            self.player_hands_count[pid] = count
+                            self.broadcast(cmd)
+                            
+                        elif cmd.startswith("DRAW_DONE:"):
+                            # 抽牌動作完成，換下一位
+                            time.sleep(1.5) # 抽完後停頓一下才換人
+                            self.next_turn()
+                            
+                        else:
+                            self.broadcast(cmd)
+                except: break
+            del self.clients[p_id]
+        
+        except Exception as e:
+            print(f"玩家 {p_id} 通訊異常: {e}")
+        finally:
+            # 當程式執行到這裡，代表該玩家已經斷線
+            if self.running: # 如果還沒被關閉，則執行關閉邏輯
+                self.stop_game_server(p_id)
+    
+    def stop_game_server(self, disconnected_id):
+        print(f"玩家 {disconnected_id} 斷開，正在停止伺服器...")
+        self.broadcast(f"ERROR:玩家 {disconnected_id} 斷開，遊戲結束。")
+        
+        # 關閉所有連線
+        for sock in list(self.clients.values()):
+            try: sock.close()
+            except: pass
+        
+        # 關鍵：將旗標設為 False，讓 run 迴圈停止
+        self.running = False
+        # 關閉監聽 socket 讓 accept 拋出例外從而跳出迴圈
+        self.server.close()
+
 
     def run(self):
-        while True:
-            conn, addr = self.server.accept()
-            p_id = len(self.clients) + 1
-            self.clients[p_id] = conn
-            print(f"玩家 {p_id} 已連線。")
-            
-            if len(self.clients) == 3: # 滿 3 人觸發
-                threading.Thread(target=self.start_game, daemon=True).start()
-            
-            threading.Thread(target=self.handle_client, args=(conn, p_id), daemon=True).start()
+        print("等待玩家連線...")
+        while self.running:
+            try:
+                conn, addr = self.server.accept()
+                p_id = len(self.clients) + 1
+                self.clients[p_id] = conn
+                threading.Thread(target=self.handle_client, args=(conn, p_id), daemon=True).start()
+                
+                if len(self.clients) == 3:
+                    threading.Thread(target=self.start_game, daemon=True).start()
+            except:
+                # 當 stop_game_server 呼叫 self.server.close() 時，
+                # accept 會報錯，程式會跑到這裡並跳出迴圈
+                break
+        print("Server 邏輯已結束。")
 
 if __name__ == "__main__":
     OldMaidServer(sys.argv[1] if len(sys.argv) > 1 else 5555).run()

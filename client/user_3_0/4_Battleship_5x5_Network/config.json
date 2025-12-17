@@ -1,6 +1,6 @@
 {
     "name": "Battleship_5x5_Network",
-    "version": "1.0",
+    "version": "1.1",
     "game_type": "gui",
     "max_players": "2",
     "entry_server": "python games/game_server.py {port}",

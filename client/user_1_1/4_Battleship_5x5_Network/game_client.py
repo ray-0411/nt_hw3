@@ -53,6 +53,15 @@ class BattleshipClient:
 
         self.enemy_btns = self.create_grid(tk.LabelFrame(container, text="敵方海域 (戰鬥區)"), self.on_enemy_click)
         self.enemy_btns[0][0].master.grid(row=0, column=1, padx=10)
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def on_closing(self):
+        try:
+            self.socket.close() # 主動切斷連線
+        except:
+            pass
+        self.root.destroy()
 
     def create_grid(self, frame, callback):
         btns = []
@@ -194,10 +203,17 @@ class BattleshipClient:
         while True:
             try:
                 data = self.socket.recv(1024).decode('utf-8')
-                if not data: break
+                if not data: 
+                    # 當 Server 主動關閉 Socket 時會執行到這
+                    break 
                 for cmd in data.split('|'):
                     if cmd: self.handle_cmd(cmd)
-            except: break
+            except: 
+                break
+        
+        # 斷線後處理：提示玩家並結束遊戲
+        messagebox.showerror("連線中斷", "與伺服器的連線已斷開。")
+        self.root.destroy()
 
     def handle_cmd(self, cmd):
         if cmd.startswith("ID:"):
@@ -215,6 +231,13 @@ class BattleshipClient:
         elif cmd.startswith("RESULT:"):
             p = cmd.split(":")[1].split(",")
             if int(p[0]) != self.player_id: self.handle_result(int(p[1]), int(p[2]), p[3], p[4:])
+        
+        if cmd.startswith("OPPONENT_DISCONNECTED"):
+            if self.phase != "GAME_OVER":
+                self.phase = "GAME_OVER"
+                messagebox.showwarning("對手斷線", "對手已離開遊戲，連線終止。")
+                self.info_label.config(text="【 對手已斷開連線 】", fg="red")
+                # 可選擇直接關閉或是鎖死棋盤
 
     def handle_defense(self, r, c):
         hit = False

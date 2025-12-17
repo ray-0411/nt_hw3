@@ -48,6 +48,17 @@ class OldMaidClient:
         self.cards_container = tk.Frame(self.my_frame)
         self.cards_container.pack(pady=10)
         self.card_labels = []
+        
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def on_closing(self):
+        """當玩家主動關閉視窗時"""
+        try:
+            # 關閉 Socket 會讓伺服器的 recv 產生異常，觸發終止邏輯
+            self.socket.close()
+        except:
+            pass
+        self.root.destroy()
 
     def update_cards_display(self, highlight_idx=-1):
         """更新手牌顯示，不排序。每 10 張牌自動換行"""
@@ -138,7 +149,10 @@ class OldMaidClient:
             
             # 更新顯示並重設 Highlight
             self.root.after(0, lambda: self.update_cards_display(highlight_idx=-1))
-            self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode())
+            try:
+                self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode())
+            except (ConnectionResetError, BrokenPipeError):
+                print("連線已斷開，停止發送 COUNT。")
             
             if is_initial:
                 #time.sleep(0.5)
@@ -147,7 +161,10 @@ class OldMaidClient:
             else:
                 # 如果是抽牌回合，結束後通知 Server 換下一個人
                 time.sleep(1)
-                self.socket.send(f"DRAW_DONE:{self.p_id}|".encode())
+                try:
+                    self.socket.send(f"DRAW_DONE:{self.p_id}|".encode())
+                except:
+                    pass
 
         threading.Thread(target=process, daemon=True).start()
     
@@ -175,7 +192,11 @@ class OldMaidClient:
             self.refresh_opponents()
             
             self.info.config(text="正在抽牌並等待回應...", fg="orange")
-            self.socket.send(f"DRAW_REQ:{self.p_id},{from_id},{idx}|".encode())
+            
+            try:
+                self.socket.send(f"DRAW_REQ:{self.p_id},{from_id},{idx}|".encode())
+            except:
+                print("發送抽牌請求失敗，連線可能已關閉。")
 
     def receive(self):
         while True:
@@ -184,11 +205,23 @@ class OldMaidClient:
                 if not data: break
                 for cmd in data.split('|'):
                     if cmd: self.handle_cmd(cmd)
-            except: break
+            except: 
+                break
+        
+        # 斷線後提示並關閉視窗
+        if not self.is_game_over:
+            messagebox.showerror("連線中斷", "與伺服器的連線已斷開。")
+            self.root.destroy()
 
     def handle_cmd(self, cmd):
         parts = cmd.split(':')
         tag = parts[0]
+        
+        if tag == "ERROR":
+            self.is_game_over = True
+            messagebox.showwarning("遊戲終止", parts[1])
+            self.root.destroy()
+            return
         
         if tag == "ID":
             self.p_id = int(parts[1])
@@ -211,8 +244,11 @@ class OldMaidClient:
                 # 立即刷新，讓自己看到洗牌後的新位置
                 self.update_cards_display()
                 # 同時也要發送一次 COUNT，確保 Server 記錄的牌數與索引同步（雖然張數沒變，但這是保險）
-                self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode('utf-8'))
-            
+                try:
+                    self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode('utf-8'))
+                except:
+                    pass
+                
             self.info.config(text=f"輪到 玩家 {curr} 抽 玩家 {target}", 
                              fg="green" if self.is_my_turn else "black")
             self.refresh_opponents()
@@ -231,9 +267,12 @@ class OldMaidClient:
                 safe_idx = c_idx if c_idx < len(self.my_cards) else 0
                 card = self.my_cards.pop(safe_idx)
                 
-                self.socket.send(f"DRAW_VAL:{p_idx},{card}|".encode('utf-8'))
-                self.update_cards_display() # 更新顯示（已打亂且少一張）
-                self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode('utf-8'))
+                try:
+                    self.socket.send(f"DRAW_VAL:{p_idx},{card}|".encode('utf-8'))
+                    self.update_cards_display() # 更新顯示（已打亂且少一張）
+                    self.socket.send(f"COUNT:{self.p_id},{len(self.my_cards)}|".encode('utf-8'))
+                except:
+                    pass
                 
         elif tag == "DRAW_VAL":
             p_idx, card = int(parts[1].split(',')[0]), parts[1].split(',')[1]
@@ -256,6 +295,8 @@ class OldMaidClient:
         elif tag == "OVER":
             self.is_game_over = True
             self.info.config(text=f"【 遊戲結束 】\n{parts[1]}", fg="red", font=('Arial', 14, 'bold'))
+        
+        
 
     def refresh_opponents(self):
         """重新繪製對手的卡牌按鈕"""
